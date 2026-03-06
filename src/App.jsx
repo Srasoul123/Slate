@@ -139,7 +139,7 @@ const useOutsideClick=(ref,onClose,active=true)=>{useEffect(()=>{if(!active)retu
 const Toggle=({on,onToggle})=>(<div onClick={onToggle} style={{width:36,height:20,borderRadius:10,background:on?"#00c875":"#ccc",cursor:"pointer",position:"relative",flexShrink:0}}><div style={{width:16,height:16,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:on?18:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/></div>);
 const Initials=(name)=>name?name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase():"?";
 
-const APP_VERSION="1.7.0";
+const APP_VERSION="1.8.1";
 const ts=()=>new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const CL=["#579bfc","#00c875","#a25ddc","#fdab3d","#e2445c","#037f4c","#ff642e","#00d2d2","#bb3354","#175a63"];
 const SC={"Done":"#00c875","Working on it":"#fdab3d","Stuck":"#e2445c","Not Started":"#c4c4c4","Future steps":"#a25ddc","In Progress":"#0073ea","Waiting":"#7c5cfc","Review":"#037f4c"};
@@ -182,7 +182,7 @@ const STATS=["Done","Working on it","Stuck","Not Started","Future steps","In Pro
 const PRIS=["Critical","High","Medium","Low","No Priority"];
 const TAGS=["Urgent","Bug","Feature","Review","Docs","Security","Infra","Migration"];
 const DD_COLORS=["#579bfc","#00c875","#fdab3d","#e2445c","#a25ddc","#037f4c","#ff642e","#00d2d2","#bb3354","#c4c4c4"];
-const mk=(d={})=>({id:uid(),task:"",owner:"",status:"Not Started",priority:"No Priority",tlStart:"",tlEnd:"",tags:[],timetracked:0,checked:false,updates:[],weeklyStatus:"",weeklyUpdate:"",completionDate:"",completionStatus:"-",dependentOn:"",plannedEffort:"",effortSpent:"",subitems:[],notes:"",...d});
+const mk=(d={})=>({id:uid(),task:"",owner:"",status:"Not Started",priority:"No Priority",tlStart:"",tlEnd:"",tags:[],timetracked:0,checked:false,updates:[],activity:[],weeklyStatus:"",weeklyUpdate:"",completionDate:"",completionStatus:"-",dependentOn:"",plannedEffort:"",effortSpent:"",subitems:[],notes:"",...d});
 const mkSub=(d={})=>({id:uid(),task:"",owner:"",status:"Not Started",checked:false,...d});
 const mkU=(t,a="System")=>({id:uid(),text:t,author:a,time:ts()});
 
@@ -566,6 +566,60 @@ const DashView=memo(({allRows})=>{
     <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
       <div style={{flex:"1 1 300px",background:"#fff",borderRadius:10,padding:20,border:"1px solid #e6e9ef"}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Status</div><ResponsiveContainer width="100%" height={200}><PieChart><Pie data={sd} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false} style={{fontSize:9}}>{sd.map((e,i)=>(<RCell key={i} fill={e.color}/>))}</Pie><Tooltip/></PieChart></ResponsiveContainer></div>
       <div style={{flex:"1 1 300px",background:"#fff",borderRadius:10,padding:20,border:"1px solid #e6e9ef"}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>By Owner</div><ResponsiveContainer width="100%" height={200}><BarChart data={od}><XAxis dataKey="name" tick={{fontSize:10}} angle={-20} textAnchor="end" height={50}/><YAxis allowDecimals={false} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="value" fill="#579bfc" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div>
+    </div>
+  </div>);
+});
+
+const GroupSummaryBar=memo(({rows,statuses})=>{
+  const t=rows.length;if(!t) return (null);
+  const counts={};rows.forEach(r=>{const s=r.status||"Not Started";counts[s]=(counts[s]||0)+1;});
+  const segments=statuses.filter(s=>counts[s]).map(s=>({label:s,count:counts[s],pct:Math.round(counts[s]/t*100),color:SC[s]||"#c4c4c4"}));
+  const totalTime=rows.reduce((a,r)=>a+(parseInt(r.timetracked)||0),0);
+  return(<div style={{display:"flex",alignItems:"center",gap:10,padding:"6px 16px 6px 44px",background:"#fafbfc",borderTop:"1px solid #f0f0f0",fontSize:11,color:"#888",flexWrap:"wrap"}}>
+    <span style={{fontWeight:600,color:"#555"}}>{t} item{t!==1?"s":""}</span>
+    <div style={{display:"flex",height:6,borderRadius:3,overflow:"hidden",flex:"0 0 120px",background:"#e6e9ef"}}>
+      {segments.map(s=>(<div key={s.label} style={{width:s.pct+"%",background:s.color,height:"100%"}} title={s.label+": "+s.count}/>))}
+    </div>
+    {segments.map(s=>(<span key={s.label} style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:7,height:7,borderRadius:2,background:s.color,flexShrink:0}}/>{s.count} {s.label}</span>))}
+    {totalTime>0&&<span style={{marginLeft:"auto",color:"#555"}}>⏱ {totalTime}m tracked</span>}
+  </div>);
+});
+
+const CalendarView=memo(({allRows})=>{
+  const [monthOff,setMonthOff]=useState(0);
+  const now=new Date();const base=new Date(now.getFullYear(),now.getMonth()+monthOff,1);
+  const year=base.getFullYear(),month=base.getMonth();
+  const firstDay=new Date(year,month,1).getDay();const daysInMonth=new Date(year,month+1,0).getDate();
+  const monthLabel=base.toLocaleDateString("en-US",{month:"long",year:"numeric"});
+  const todayStr=today();
+  /* Map items to their due dates */
+  const dateMap=useMemo(()=>{
+    const m={};allRows.forEach(({row})=>{
+      const d=row.tlEnd||row.tlStart;if(!d)return;
+      const ds=d.slice(0,10);if(!ds.startsWith(year+"-"+String(month+1).padStart(2,"0")))return;
+      if(!m[ds])m[ds]=[];m[ds].push(row);
+    });return m;
+  },[allRows,year,month]);
+  const cells=[];for(let i=0;i<firstDay;i++)cells.push(null);for(let d=1;d<=daysInMonth;d++)cells.push(d);
+  while(cells.length%7!==0)cells.push(null);
+  return(<div style={{maxWidth:900}}>
+    <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:14}}>
+      <button onClick={()=>setMonthOff(o=>o-1)} style={{background:"#fff",border:"1px solid #e0e0e0",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:14}}>←</button>
+      <div style={{fontSize:16,fontWeight:700,minWidth:180,textAlign:"center"}}>{monthLabel}</div>
+      <button onClick={()=>setMonthOff(o=>o+1)} style={{background:"#fff",border:"1px solid #e0e0e0",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:14}}>→</button>
+      {monthOff!==0&&<button onClick={()=>setMonthOff(0)} style={{background:"#0073ea",color:"#fff",border:"none",borderRadius:6,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>Today</button>}
+    </div>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",border:"1px solid #e6e9ef",borderRadius:8,overflow:"hidden"}}>
+      {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>(<div key={d} style={{padding:"8px 4px",textAlign:"center",fontSize:11,fontWeight:700,color:"#888",background:"#fafbfc",borderBottom:"1px solid #e6e9ef"}}>{d}</div>))}
+      {cells.map((day,i)=>{
+        const ds=day?year+"-"+String(month+1).padStart(2,"0")+"-"+String(day).padStart(2,"0"):null;
+        const items=ds?dateMap[ds]||[]:[];const isToday=ds===todayStr;const isWeekend=i%7===0||i%7===6;
+        return(<div key={i} style={{minHeight:80,padding:4,borderRight:i%7<6?"1px solid #f0f0f0":"none",borderBottom:"1px solid #f0f0f0",background:isToday?"#e6f0ff":isWeekend&&day?"#fafbfc":"#fff",position:"relative"}}>
+          {day&&<div style={{fontSize:12,fontWeight:isToday?800:400,color:isToday?"#0073ea":"#555",marginBottom:2}}>{day}</div>}
+          {items.slice(0,3).map(r=>(<div key={r.id} style={{padding:"2px 4px",marginBottom:2,borderRadius:3,background:SC[r.status]||"#579bfc",color:"#fff",fontSize:10,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",cursor:"default"}} title={r.task+" — "+r.status+(r.owner?" ("+r.owner+")":"")}>{r.task}</div>))}
+          {items.length>3&&<div style={{fontSize:9,color:"#888",padding:"0 4px"}}>+{items.length-3} more</div>}
+        </div>);
+      })}
     </div>
   </div>);
 });
@@ -958,7 +1012,31 @@ const DetailPanel=({row,gId,onUpdate,onAddUpdate,onClose,people,statuses,priorit
         {(row.subitems||[]).length>0&&<div style={{marginTop:12,borderTop:"1px solid #f0f0f0",paddingTop:12}}><div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:8}}>SUBITEMS ({row.subitems.length})</div>{row.subitems.map(si=>(<div key={si.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#f7f8fa",borderRadius:6,marginBottom:4}}><span style={{flex:1,fontSize:12}}>{si.task||"Untitled"}</span><span style={{fontSize:11,padding:"2px 6px",borderRadius:3,background:SC[si.status]||"#ccc",color:"#fff"}}>{si.status}</span></div>))}</div>}
       </div>}
       {tab==="updates"&&<div>{(row.updates||[]).length===0&&<div style={{color:"#aaa",textAlign:"center",padding:30,fontSize:13}}>No updates</div>}{(row.updates||[]).slice().reverse().map(u=>(<div key={u.id} style={{marginBottom:10,padding:"10px 14px",background:"#f7f8fa",borderRadius:8,borderLeft:"3px solid #0073ea"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{u.author}</span><span style={{fontSize:11,color:"#999"}}>{u.time}</span></div><div style={{fontSize:13,color:"#444"}}>{renderMentionText(u.text,people)}</div></div>))}<div style={{marginTop:12}}><UpdateInput onPost={t=>onAddUpdate(t)} people={people}/></div></div>}
-      {tab==="activity"&&<div style={{fontSize:13,color:"#888"}}><div style={{padding:"8px 0",borderBottom:"1px solid #f0f0f0"}}>Item created</div>{(row.updates||[]).map(u=>(<div key={u.id} style={{padding:"8px 0",borderBottom:"1px solid #f0f0f0"}}><b>{u.author}</b> posted update — {u.time}</div>))}{row.completionDate&&<div style={{padding:"8px 0",background:"#f0fff4",borderRadius:4,paddingLeft:8,marginTop:4}}><b>✓ Completed</b> — {row.completionDate} {row.completionStatus&&row.completionStatus!=="-"&&<span style={{background:COMP_SC[row.completionStatus],color:"#fff",borderRadius:4,padding:"1px 6px",fontSize:11,marginLeft:4}}>{row.completionStatus}</span>}</div>}</div>}
+      {tab==="activity"&&<div style={{fontSize:13,color:"#555"}}>
+        {(row.activity||[]).length===0&&(row.updates||[]).length===0&&!row.completionDate&&<div style={{color:"#aaa",textAlign:"center",padding:30}}>No activity recorded yet. Changes to status, owner, priority, and dates are tracked here.</div>}
+        {[...(row.activity||[]).map(a=>({type:"change",time:a.time,sort:a.time,...a})),...(row.updates||[]).map(u=>({type:"update",time:u.time,sort:u.time,...u})),...(row.completionDate?[{type:"complete",time:row.completionDate,sort:row.completionDate,completionStatus:row.completionStatus}]:[])].sort((a,b)=>(b.sort||"").localeCompare(a.sort||"")).map((ev,i)=>{
+          if(ev.type==="change"){const fLabel=({status:"Status",priority:"Priority",owner:"Owner",tlStart:"Start Date",tlEnd:"End Date",tags:"Tags",completionDate:"Completion Date",completionStatus:"Completion Status",dependentOn:"Dependencies"})[ev.field]||ev.field;
+            return(<div key={i} style={{padding:"8px 0",borderBottom:"1px solid #f5f5f5",display:"flex",gap:8,alignItems:"flex-start"}}>
+              <div style={{width:6,height:6,borderRadius:"50%",background:"#0073ea",marginTop:6,flexShrink:0}}/>
+              <div style={{flex:1}}><div style={{fontSize:12}}><b>{ev.by||"Unknown"}</b> changed <span style={{fontWeight:600,color:"#0073ea"}}>{fLabel}</span></div>
+                <div style={{display:"flex",alignItems:"center",gap:6,marginTop:3,fontSize:11}}>
+                  <span style={{background:"#fde8ec",color:"#e2445c",borderRadius:3,padding:"1px 6px",textDecoration:"line-through"}}>{ev.from}</span>
+                  <span style={{color:"#aaa"}}>→</span>
+                  <span style={{background:"#e8f8ef",color:"#00c875",borderRadius:3,padding:"1px 6px",fontWeight:600}}>{ev.to}</span>
+                </div>
+                <div style={{fontSize:10,color:"#aaa",marginTop:2}}>{ev.time}</div>
+              </div>
+            </div>);}
+          if(ev.type==="update") return(<div key={i} style={{padding:"8px 0",borderBottom:"1px solid #f5f5f5",display:"flex",gap:8,alignItems:"flex-start"}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:"#fdab3d",marginTop:6,flexShrink:0}}/>
+            <div><div style={{fontSize:12}}><b>{ev.author}</b> posted an update</div><div style={{fontSize:11,color:"#666",marginTop:2}}>{renderMentionText(ev.text,people)}</div><div style={{fontSize:10,color:"#aaa",marginTop:2}}>{ev.time}</div></div>
+          </div>);
+          if(ev.type==="complete") return(<div key={i} style={{padding:"8px 12px",background:"#f0fff4",borderRadius:6,marginBottom:4,display:"flex",gap:8,alignItems:"center"}}>
+            <span style={{color:"#00c875",fontWeight:700}}>✓</span><div><div style={{fontSize:12,fontWeight:600}}>Completed</div><div style={{fontSize:11,color:"#888"}}>{ev.time} {ev.completionStatus&&ev.completionStatus!=="-"&&<span style={{background:COMP_SC[ev.completionStatus],color:"#fff",borderRadius:3,padding:"0 5px",fontSize:10,marginLeft:4}}>{ev.completionStatus}</span>}</div></div>
+          </div>);
+          return null;
+        })}
+      </div>}
     </div>
   </SidePanel>);
 };
@@ -1510,23 +1588,20 @@ export default function App(){
   const undoRef=useRef([]);const UNDO_MAX=40;
   const snap=useCallback(()=>{setBoards(cur=>{undoRef.current=[...undoRef.current.slice(-(UNDO_MAX-1)),cur];return cur;});},[]);
   const undo=useCallback(()=>{if(!undoRef.current.length)return;const prev=undoRef.current[undoRef.current.length-1];undoRef.current=undoRef.current.slice(0,-1);setBoards(prev);setToast("↩ Undo successful");},[]);
+  /* Keyboard shortcuts — uses refs to avoid dependency ordering issues */
+  const kbRef=useRef({});
   useEffect(()=>{const h=e=>{
     const mod=e.ctrlKey||e.metaKey;const tag=e.target?.tagName;const isInput=tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT";
-    /* Ctrl+Z — Undo */
+    const kb=kbRef.current;
     if(mod&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo();return;}
-    /* Ctrl+D — Duplicate selected rows */
-    if(mod&&e.key==="d"&&selCount>0){e.preventDefault();bulkDuplicate();return;}
-    /* Ctrl+F — Focus search */
+    if(mod&&e.key==="d"&&kb.selCount>0){e.preventDefault();kb.bulkDuplicate?.();return;}
     if(mod&&e.key==="f"){e.preventDefault();setSearchOpen(true);setTimeout(()=>{const el=document.querySelector('[data-search-input]');if(el)el.focus();},50);return;}
-    /* Ctrl+N — New item */
-    if(mod&&e.key==="n"){e.preventDefault();if(board?.groups?.[0]?.id)addRow(board.groups[0].id);return;}
-    /* Escape — Close panels */
-    if(e.key==="Escape"){if(detailPanel){setDetailPanel(null);return;}if(updPanel){setUpdPanel(null);return;}if(sharePanel){setSharePanel(false);return;}if(wsSharePanel){setWsSharePanel(false);return;}if(adminOpen){setAdminOpen(false);return;}if(historyOpen){setHistoryOpen(false);return;}if(autoPanel){setAutoPanel(false);return;}if(templateModal){setTemplateModal(false);return;}if(searchOpen){setSearchOpen(false);setSearch("");return;}if(filterOpen){setFilterOpen(false);return;}}
-    /* Tab in table inputs — move to next cell */
+    if(mod&&e.key==="n"){e.preventDefault();kb.addRow?.();return;}
+    if(e.key==="Escape"){if(kb.detailPanel){kb.setDetailPanel(null);return;}if(kb.updPanel){kb.setUpdPanel(null);return;}if(kb.sharePanel){kb.setSharePanel(false);return;}if(kb.wsSharePanel){kb.setWsSharePanel(false);return;}if(kb.adminOpen){kb.setAdminOpen(false);return;}if(kb.historyOpen){kb.setHistoryOpen(false);return;}if(kb.autoPanel){kb.setAutoPanel(false);return;}if(kb.templateModal){kb.setTemplateModal(false);return;}if(kb.searchOpen){setSearchOpen(false);setSearch("");return;}if(kb.filterOpen){kb.setFilterOpen(false);return;}}
     if(e.key==="Tab"&&isInput&&e.target.closest('[data-row-id]')){
       e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const idx=cells.indexOf(e.target);const next=e.shiftKey?idx-1:idx+1;if(next>=0&&next<cells.length){cells[next].focus();cells[next].select?.();}
     }
-  };document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[undo,selCount,board,detailPanel,updPanel,sharePanel,wsSharePanel,adminOpen,historyOpen,autoPanel,templateModal,searchOpen,filterOpen]);
+  };document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[undo]);
   const [workspaces,setWorkspaces]=useState(INIT_WS);const [activeWs,setActiveWs]=useState("ws_it");const [wsPickerOpen,setWsPickerOpen]=useState(false);
   const [catCol,setCatCol]=useState({"ACTIVE":false,"IN PROGRESS":false,"COMPLETED":true,"STALLED":true,"ON HOLD":true});
   const [people,setPeople]=useState(PEOPLE);const [statuses,setStatuses]=useState(STATS);const [priorities,setPriorities]=useState(PRIS);const [allTags,setAllTags]=useState(TAGS);
@@ -1565,6 +1640,8 @@ export default function App(){
 
   const bi=boards.findIndex(b=>b.id===activeId);const board=boards[bi];const cols=board?.columns||DCOLS;
   const wsBoards=useMemo(()=>boards.filter(b=>b.wsId===activeWs),[boards,activeWs]);
+  const selectedRows=useMemo(()=>{if(!board)return[];const sel=[];board.groups.forEach(g=>{g.rows.forEach(r=>{if(r.checked&&!r._syncReadonly)sel.push({gId:g.id,rId:r.id,task:r.task});});});return sel;},[board]);
+  const selCount=selectedRows.length;
   /* Permission check: board is read-only if user is in shared list with access:"read" and is not owner */
   const boardReadonly=useMemo(()=>{if(!board||!authedUser)return false;if(board.owner===authedUser.id||authedUser.role==="Admin")return false;const s=board.shared?.find(x=>x.userId===authedUser.id);if(s&&s.access==="read")return true;const ws=workspaces.find(w=>w.id===board.wsId);if(ws){if(ws.owner===authedUser.id)return false;const ws_s=ws.shared?.find(x=>x.userId===authedUser.id);if(ws_s&&ws_s.access==="read")return true;}return false;},[board,authedUser,workspaces]);
   const isWk=g=>g.name.toLowerCase().includes("weekly");
@@ -1657,12 +1734,16 @@ export default function App(){
   },[autos,activeId,snap]);
 
   /* NO_BULK moved to module level as _NO_BULK */
+  const _TRACK_FIELDS=new Set(["status","priority","owner","tlStart","tlEnd","tags","completionDate","completionStatus","dependentOn"]);
   const upRow=(gId,rId,f,v)=>{if(boardReadonly&&f!=="checked")return;const grp=board.groups.find(g=>g.id===gId);const row=grp?.rows.find(r=>r.id===rId);
     const applyBulk=row?.checked&&selCount>1&&!_NO_BULK.has(f);
     const sel=applyBulk?new Set(selectedRows.map(s=>s.rId)):null;
     const needsSync=f==="status"||f==="weeklyUpdate"||f==="weeklyStatus";
     const quiet=f==="checked";
-    updActive(b=>applyBulk?_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,[f]:v}:r)):_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,[f]:v})),needsSync,quiet);
+    const actEntry=(!quiet&&_TRACK_FIELDS.has(f)&&row)?{id:uid(),field:f,from:String(Array.isArray(row[f])?row[f].join(","):(row[f]||"-")),to:String(Array.isArray(v)?v.join(","):(v||"-")),by:currentUser.name,time:ts()}:null;
+    updActive(b=>applyBulk
+      ?_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,[f]:v,...(actEntry?{activity:[...(r.activity||[]),actEntry]}:{})}:r))
+      :_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,[f]:v,...(actEntry?{activity:[...(r.activity||[]),actEntry]}:{})})),needsSync,quiet);
     if(applyBulk){log("Bulk "+f,selCount+" items → "+String(v),"#0073ea");}
     else if(f==="status"){log("Status","\""+((row?.task)||"")+"\" → "+v,"#00c875");runAutos(f,v,row,gId);}
     else if(f==="owner"||f==="task"){runAutos(f,v,row,gId);}
@@ -1671,8 +1752,6 @@ export default function App(){
   const delRow=useCallback((gId,rId)=>{if(boardReadonly)return;updActive(b=>_mapGR(b,gId,rs=>rs.filter(r=>r.id!==rId)),true);},[updActive,boardReadonly]);
   const dupRow=(gId,rId)=>{const grp=board.groups.find(g=>g.id===gId);const row=grp?.rows.find(r=>r.id===rId);if(row){const nr={...row,id:uid(),task:row.task+" (copy)",subitems:(row.subitems||[]).map(s=>({...s,id:uid()})),updates:[]};setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:[...g.rows,nr]})}));}};
   /* --- Bulk selection helpers --- */
-  const selectedRows=useMemo(()=>{if(!board)return[];const sel=[];board.groups.forEach(g=>{g.rows.forEach(r=>{if(r.checked&&!r._syncReadonly)sel.push({gId:g.id,rId:r.id,task:r.task});});});return sel;},[board]);
-  const selCount=selectedRows.length;
   const deselectAll=()=>setB(bi,b=>({...b,groups:b.groups.map(g=>({...g,rows:g.rows.map(r=>({...r,checked:false}))}))}),true);
   const selectAllInGroup=(gId,val)=>setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:g.rows.map(r=>r._syncReadonly?r:{...r,checked:val})})}),true);
   const bulkDelete=()=>{const sel=new Set(selectedRows.map(s=>s.rId));updActive(b=>_mapAllR(b,rs=>rs.filter(r=>!sel.has(r.id))),true);log("Bulk Delete",selCount+" items deleted","#e2445c");};
@@ -1794,6 +1873,9 @@ export default function App(){
   const histBadge=useMemo(()=>boards.reduce((a,b)=>(a+(b.hist||[]).length),0),[boards]);
   const histItems=useMemo(()=>boards.filter(b=>histFilter==="all"||b.id===histFilter).flatMap(b=>(b.hist||[]).map(h=>({...h,board:b.name,boardId:b.id}))),[boards,histFilter]);
 
+  /* Sync keyboard ref with current values */
+  kbRef.current={selCount,bulkDuplicate,addRow:()=>{if(board?.groups?.[0]?.id)addRow(board.groups[0].id);},detailPanel,setDetailPanel,updPanel,setUpdPanel,sharePanel,setSharePanel,wsSharePanel,setWsSharePanel,adminOpen,setAdminOpen,historyOpen,setHistoryOpen,autoPanel,setAutoPanel,templateModal,setTemplateModal,searchOpen,filterOpen,setFilterOpen};
+
   const SyncBanner=useCallback(({icon,title,sub,pill,pillBg})=>(<div style={{background:"linear-gradient(90deg,#f0f0ff,#f0fffe)",border:"1px solid #d8d4ff",borderRadius:8,padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10,fontSize:13,flexWrap:"wrap"}}><span style={{fontWeight:600}}>{icon} {title}</span><span style={{color:"#888"}}>{sub}</span>{pill&&<span style={{marginLeft:"auto",background:pillBg||"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",borderRadius:20,padding:"2px 12px",fontSize:11,fontWeight:700}}>{pill}</span>}</div>),[]);
 
   if(!authedUser) return (<AuthScreen onAuth={onAuth}/>);
@@ -1913,7 +1995,7 @@ export default function App(){
           {board?.isDashboard?<div style={{paddingBottom:10,fontSize:13,color:"#888",display:"flex",alignItems:"center",gap:10}}>Cross-board analytics — aggregates all task boards in your workspace <button onClick={handleExportDashExcel} style={{padding:"3px 10px",borderRadius:5,border:"1px solid #e0e0e0",background:"#fff",cursor:"pointer",fontSize:11,color:"#555",display:"flex",alignItems:"center",gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:"1px solid #e0e0e0",background:"#fff",cursor:"pointer",fontSize:11,color:"#555",display:"flex",alignItems:"center",gap:4}}>📄 PDF</button></div>
           :board?.isSummary?<div style={{paddingBottom:10,fontSize:13,color:"#888",display:"flex",alignItems:"center",gap:10}}>Executive summary — categorized action items for leadership review <button onClick={handleExportSummaryExcel} style={{padding:"3px 10px",borderRadius:5,border:"1px solid #e0e0e0",background:"#fff",cursor:"pointer",fontSize:11,color:"#555",display:"flex",alignItems:"center",gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:"1px solid #e0e0e0",background:"#fff",cursor:"pointer",fontSize:11,color:"#555",display:"flex",alignItems:"center",gap:4}}>📄 PDF</button></div>
           :<div style={{display:"flex",alignItems:"center",gap:6,paddingBottom:10,flexWrap:"wrap"}}>
-            {["Main table","Kanban","Dashboard","Gantt"].map(v=>(<button key={v} onClick={()=>setActiveView(v)} style={{padding:"5px 12px",borderRadius:6,border:activeView===v?"none":"1px solid #e0e0e0",background:activeView===v?"#fff":"transparent",cursor:"pointer",fontSize:13,fontWeight:activeView===v?600:400,boxShadow:activeView===v?"0 1px 3px rgba(0,0,0,.08)":"none"}}>{v}</button>))}
+            {["Main table","Kanban","Calendar","Dashboard","Gantt"].map(v=>(<button key={v} onClick={()=>setActiveView(v)} style={{padding:"5px 12px",borderRadius:6,border:activeView===v?"none":"1px solid #e0e0e0",background:activeView===v?"#fff":"transparent",cursor:"pointer",fontSize:13,fontWeight:activeView===v?600:400,boxShadow:activeView===v?"0 1px 3px rgba(0,0,0,.08)":"none"}}>{v}</button>))}
             <button disabled={boardReadonly} onClick={()=>addRow(board?.groups?.[0]?.id)} style={{padding:"5px 14px",borderRadius:6,border:"none",background:boardReadonly?"#ccc":"#0073ea",color:"#fff",cursor:boardReadonly?"default":"pointer",fontSize:13,fontWeight:600}}>+ Item</button>
             <button disabled={boardReadonly} onClick={addGroup} style={{padding:"5px 12px",borderRadius:6,border:"1px solid #e0e0e0",background:boardReadonly?"#f5f5f5":"#fff",cursor:boardReadonly?"default":"pointer",fontSize:13,color:boardReadonly?"#ccc":"#333"}}>+ Group</button>
             <div style={{position:"relative"}}><button onClick={()=>setFilterOpen(!filterOpen)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid #e0e0e0",background:filterOpen?"#e6f0ff":"#fff",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:4}}>🔽 Filter {Object.values(filters).flat().length>0&&<span style={{background:"#6c5ce7",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>{Object.values(filters).flat().length}</span>}{globalSortBy!=="Default"&&<span style={{background:"#fdab3d",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>Sort</span>}{hiddenCols.length>0&&<span style={{background:"#a25ddc",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>-{hiddenCols.length}</span>}</button>{filterOpen&&<FilterPanel filters={filters} setFilters={setFilters} people={people} statuses={statuses} priorities={priorities} allTags={allTags} onClose={()=>setFilterOpen(false)} sortBy={globalSortBy} setSortBy={setGlobalSortBy} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols}/>}</div>
@@ -1980,6 +2062,7 @@ export default function App(){
                   </div>);
                 })}
                 <div onClick={()=>addRow(group.id)} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background="#e6f0ff";}} onDragLeave={e=>{e.currentTarget.style.background="";}} onDrop={e=>{e.currentTarget.style.background="";onRowDrop(e,group.id,"__end__");}} style={{padding:"7px 16px 7px 44px",color:"#0073ea",cursor:"pointer",fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background="#f8faff"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New project</div>
+                <GroupSummaryBar rows={group.rows} statuses={statuses}/>
               </div></div>}
             </div>);
           })}
@@ -2035,10 +2118,12 @@ export default function App(){
                   {isExp&&<div onClick={()=>addSubitem(group.id,row.id)} style={{padding:"4px 16px 4px 50px",color:"#0073ea",cursor:"pointer",fontSize:12,background:"#fafbfe"}}>+ subitem</div>}
                 </div>);})}
                 <div onClick={()=>addRow(group.id)} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background="#e6f0ff";}} onDragLeave={e=>{e.currentTarget.style.background="";}} onDrop={e=>{e.currentTarget.style.background="";onRowDrop(e,group.id,"__end__");}} style={{padding:"7px 16px 7px 44px",color:"#0073ea",cursor:"pointer",fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background="#f8faff"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ Add task</div>
+                <GroupSummaryBar rows={group.rows} statuses={statuses}/>
               </div></div>}
             </div>);
           })}
           {!board?.isDashboard&&!board?.isSummary&&activeView==="Kanban"&&<KanbanView statuses={statuses} allRows={filteredAllRows}/>}
+          {!board?.isDashboard&&!board?.isSummary&&activeView==="Calendar"&&<CalendarView allRows={filteredAllRows}/>}
           {!board?.isDashboard&&!board?.isSummary&&activeView==="Dashboard"&&<DashView allRows={filteredAllRows}/>}
           {!board?.isDashboard&&!board?.isSummary&&activeView==="Gantt"&&<GanttView allRows={filteredAllRows}/>}
         </div>
