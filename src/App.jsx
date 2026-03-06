@@ -139,7 +139,7 @@ const useOutsideClick=(ref,onClose,active=true)=>{useEffect(()=>{if(!active)retu
 const Toggle=({on,onToggle})=>(<div onClick={onToggle} style={{width:36,height:20,borderRadius:10,background:on?"#00c875":"#ccc",cursor:"pointer",position:"relative",flexShrink:0}}><div style={{width:16,height:16,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:on?18:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/></div>);
 const Initials=(name)=>name?name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase():"?";
 
-const APP_VERSION="1.5.0";
+const APP_VERSION="1.7.0";
 const ts=()=>new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const CL=["#579bfc","#00c875","#a25ddc","#fdab3d","#e2445c","#037f4c","#ff642e","#00d2d2","#bb3354","#175a63"];
 const SC={"Done":"#00c875","Working on it":"#fdab3d","Stuck":"#e2445c","Not Started":"#c4c4c4","Future steps":"#a25ddc","In Progress":"#0073ea","Waiting":"#7c5cfc","Review":"#037f4c"};
@@ -292,12 +292,12 @@ const IBOARDS=[
     {id:"g_m2",name:"Migration Waves",color:"#579bfc",collapsed:false,rows:[
       mk({task:"Wave 1 — IT Dept (50 users)",owner:"Alex M.",status:"Done",priority:"High",tlStart:"2026-02-17",tlEnd:"2026-02-19",tags:["Migration"],subitems:[mkSub({task:"Mailbox migration",status:"Done",owner:"Alex M."}),mkSub({task:"OneDrive sync",status:"Done",owner:"Tom W."}),mkSub({task:"Teams channels",status:"Done",owner:"Sarah K."})]}),
       mk({task:"Wave 2 — Finance & HR (80 users)",owner:"Sarah K.",status:"Done",priority:"High",tlStart:"2026-02-24",tlEnd:"2026-02-26",tags:["Migration"]}),
-      mk({task:"Wave 3 — Sales & Marketing (120 users)",owner:"Alex M.",status:"In Progress",priority:"High",tlStart:"2026-03-03",tlEnd:"2026-03-07",tags:["Migration"],updates:[mkU("50 mailboxes complete, 70 remaining","Alex M."),mkU("3 shared mailboxes need manual fix","Tom W.")]}),
-      mk({task:"Wave 4 — All remaining (200 users)",owner:"Tom W.",status:"Not Started",priority:"High",tlStart:"2026-03-10",tlEnd:"2026-03-14",tags:["Migration"]}),
-      mk({task:"MX record cutover",owner:"Alex M.",status:"Not Started",priority:"Critical",tlStart:"2026-03-15",tlEnd:"2026-03-15",tags:["Infra","Urgent"]}),
+      mk({task:"Wave 3 — Sales & Marketing (120 users)",owner:"Alex M.",status:"In Progress",priority:"High",tlStart:"2026-03-03",tlEnd:"2026-03-07",tags:["Migration"],dependentOn:"Wave 2 — Finance & HR (80 users)",updates:[mkU("50 mailboxes complete, 70 remaining","Alex M."),mkU("3 shared mailboxes need manual fix","Tom W.")]}),
+      mk({task:"Wave 4 — All remaining (200 users)",owner:"Tom W.",status:"Not Started",priority:"High",tlStart:"2026-03-10",tlEnd:"2026-03-14",tags:["Migration"],dependentOn:"Wave 3 — Sales & Marketing (120 users)"}),
+      mk({task:"MX record cutover",owner:"Alex M.",status:"Not Started",priority:"Critical",tlStart:"2026-03-15",tlEnd:"2026-03-15",tags:["Infra","Urgent"],dependentOn:"Wave 4 — All remaining (200 users)"}),
     ]},
     {id:"g_m3",name:"Post-Migration",color:"#00c875",collapsed:true,rows:[
-      mk({task:"Decommission old Exchange server",owner:"Tom W.",status:"Not Started",priority:"Medium",tlStart:"2026-03-17",tlEnd:"2026-03-21"}),
+      mk({task:"Decommission old Exchange server",owner:"Tom W.",status:"Not Started",priority:"Medium",tlStart:"2026-03-17",tlEnd:"2026-03-21",dependentOn:"MX record cutover"}),
       mk({task:"Update MFA policies for new tenant",owner:"Sarah K.",status:"Not Started",priority:"High",tlStart:"2026-03-16",tlEnd:"2026-03-18",tags:["Security"]}),
       mk({task:"User training sessions (Teams)",owner:"Pat G.",status:"Not Started",priority:"Medium",tlStart:"2026-03-10",tlEnd:"2026-03-14"}),
     ]},
@@ -484,7 +484,21 @@ const Cell=memo(({col,row,onChange,onOpenUpdates,onOpenDetail,people,setPeople,s
 });
 
 const Logo=({size=32})=>(<svg width={size} height={size} viewBox="0 0 40 40"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stopColor="#8075f2"/><stop offset="100%" stopColor="#4530c7"/></linearGradient><linearGradient id="beam" x1=".3" y1="0" x2=".7" y2="1"><stop offset="0%" stopColor="#fff" stopOpacity="0"/><stop offset="30%" stopColor="#fff" stopOpacity=".9"/><stop offset="70%" stopColor="#fff" stopOpacity=".9"/><stop offset="100%" stopColor="#fff" stopOpacity="0"/></linearGradient></defs><rect rx="10" width="40" height="40" fill="url(#lg)"/><path d="M21 11c0 0-2.8-1.5-5.8-1.5-3.5 0-5.7 2-5.7 4.8 0 3 2.5 4.2 6 5.3 4.2 1.3 7.2 3.2 7.2 7 0 3.8-3.2 6-7.8 6-3 0-5-1-5-1" fill="none" stroke="rgba(255,255,255,.9)" strokeWidth="3.5" strokeLinecap="round"/><line x1="27" y1="3" x2="34" y2="37" stroke="url(#beam)" strokeWidth="2.8" strokeLinecap="round"/></svg>);
-const UpdateInput=({onPost})=>{const[t,st]=useState("");return(<div style={{display:"flex",gap:8}}><input value={t} onChange={e=>st(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&t.trim()){onPost(t.trim());st("");}}} placeholder="Write an update..." style={{flex:1,padding:"8px 12px",border:"1px solid #ddd",borderRadius:6,fontSize:13,outline:"none"}}/><button onClick={()=>{if(t.trim()){onPost(t.trim());st("");}}} style={{background:"#0073ea",color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600}}>Post</button></div>);};
+const UpdateInput=({onPost,people=[]})=>{const[t,st]=useState("");const[mentionOpen,setMentionOpen]=useState(false);const[mentionQ,setMentionQ]=useState("");const[mentionIdx,setMentionIdx]=useState(0);const ref=useRef(null);
+  const filtered=mentionQ?people.filter(p=>p.toLowerCase().includes(mentionQ.toLowerCase())).slice(0,5):people.slice(0,5);
+  const insertMention=(name)=>{const atIdx=t.lastIndexOf("@");if(atIdx>=0){st(t.slice(0,atIdx)+"@"+name+" ");}else{st(t+"@"+name+" ");}setMentionOpen(false);setMentionQ("");setTimeout(()=>ref.current?.focus(),0);};
+  const onChange=(e)=>{const v=e.target.value;st(v);const atIdx=v.lastIndexOf("@");if(atIdx>=0&&(atIdx===0||v[atIdx-1]===" ")){const q=v.slice(atIdx+1);if(!q.includes(" ")){setMentionOpen(true);setMentionQ(q);setMentionIdx(0);return;}}setMentionOpen(false);};
+  const onKey=(e)=>{if(mentionOpen&&filtered.length>0){if(e.key==="ArrowDown"){e.preventDefault();setMentionIdx(i=>(i+1)%filtered.length);return;}if(e.key==="ArrowUp"){e.preventDefault();setMentionIdx(i=>(i-1+filtered.length)%filtered.length);return;}if(e.key==="Tab"||e.key==="Enter"){e.preventDefault();insertMention(filtered[mentionIdx]);return;}if(e.key==="Escape"){setMentionOpen(false);return;}}if(e.key==="Enter"&&!mentionOpen&&t.trim()){onPost(t.trim());st("");}};
+  return(<div style={{position:"relative"}}><div style={{display:"flex",gap:8}}><input ref={ref} value={t} onChange={onChange} onKeyDown={onKey} placeholder="Write an update... @mention people" style={{flex:1,padding:"8px 12px",border:"1px solid #ddd",borderRadius:6,fontSize:13,outline:"none"}} onFocus={e=>e.currentTarget.style.borderColor="#0073ea"} onBlur={e=>{e.currentTarget.style.borderColor="#ddd";setTimeout(()=>setMentionOpen(false),150);}}/><button onClick={()=>{if(t.trim()){onPost(t.trim());st("");}}} style={{background:"#0073ea",color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600}}>Post</button></div>
+    {mentionOpen&&filtered.length>0&&<div style={{position:"absolute",bottom:"100%",left:0,marginBottom:4,background:"#fff",border:"1px solid #e0e0e0",borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,.12)",width:220,zIndex:10,overflow:"hidden"}}>
+      <div style={{padding:"6px 10px",fontSize:10,color:"#999",fontWeight:600,borderBottom:"1px solid #f0f0f0"}}>Mention someone</div>
+      {filtered.map((p,i)=>(<div key={p} onClick={()=>insertMention(p)} style={{padding:"7px 12px",fontSize:13,cursor:"pointer",background:i===mentionIdx?"#e6f0ff":"transparent",display:"flex",alignItems:"center",gap:8}} onMouseEnter={()=>setMentionIdx(i)}>
+        <div style={{width:22,height:22,borderRadius:"50%",background:CL[people.indexOf(p)%CL.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,flexShrink:0}}>{Initials(p)}</div>
+        <span>{p}</span>
+      </div>))}
+    </div>}
+  </div>);};
+const renderMentionText=(text,people)=>{if(!text||!text.includes("@"))return text;const parts=[];let last=0;const re=/@([\w][\w .]*)/g;let m;while((m=re.exec(text))!==null){const name=m[1].trim();const isPerson=people?.some(p=>p.toLowerCase()===name.toLowerCase());if(isPerson){if(m.index>last)parts.push(text.slice(last,m.index));parts.push(<span key={m.index} style={{background:"#e6f0ff",color:"#0073ea",borderRadius:3,padding:"0 3px",fontWeight:600,fontSize:12}}>@{name}</span>);last=m.index+m[0].length;}}if(last<text.length)parts.push(text.slice(last));return parts.length?parts:text;};
 
 const CtxMenu=({pos,onClose,options})=>{
   const ref=useRef(null);
@@ -560,11 +574,38 @@ const GanttView=memo(({allRows})=>{
   const wt=allRows.filter(({row})=>row.tlStart&&row.tlEnd);if(!wt.length) return(<div style={{padding:40,textAlign:"center",color:"#aaa"}}>No tasks with timeline set.</div>);
   const ad=wt.flatMap(({row})=>[new Date(row.tlStart),new Date(row.tlEnd)]);const mn=new Date(Math.min(...ad)),mx=new Date(Math.max(...ad));
   const days=[];for(let d=new Date(mn);d<=mx;d.setDate(d.getDate()+1))days.push(new Date(d));const cw=Math.max(24,Math.min(50,700/days.length));
-  return(<div style={{overflowX:"auto"}}><div style={{display:"flex",minWidth:days.length*cw+220}}>
-    <div style={{width:220,flexShrink:0,borderRight:"1px solid #e6e9ef"}}><div style={{height:40,padding:"8px 12px",fontWeight:700,fontSize:12,color:"#666",borderBottom:"1px solid #e6e9ef"}}>Task</div>
-      {wt.map(({row})=>(<div key={row.id} style={{height:34,padding:"0 12px",display:"flex",alignItems:"center",fontSize:12,borderBottom:"1px solid #f5f5f5",color:isOverdue(row)?"#e2445c":"#333",fontWeight:isOverdue(row)?600:400}}>{isOverdue(row)&&"⚠ "}{(row.task||"").slice(0,28)}</div>))}</div>
-    <div style={{flex:1}}><div style={{display:"flex",height:40,borderBottom:"1px solid #e6e9ef"}}>{days.map((d,i)=>{const isToday=d.toDateString()===new Date().toDateString();return(<div key={i} style={{width:cw,flexShrink:0,textAlign:"center",fontSize:8,color:isToday?"#0073ea":"#999",padding:"4px 0",borderRight:"1px solid #f5f5f5",background:isToday?"#e6f0ff":"transparent",fontWeight:isToday?700:400}}><div>{d.toLocaleDateString("en-US",{month:"short"})}</div><div>{d.getDate()}</div></div>);})}</div>
-      {wt.map(({row})=>{const s=new Date(row.tlStart),e=new Date(row.tlEnd),l=((s-mn)/(864e5))*cw,w=Math.max(cw/2,((e-s)/(864e5))*cw);return(<div key={row.id} style={{height:34,position:"relative",borderBottom:"1px solid #f5f5f5"}}><div style={{position:"absolute",left:l,top:7,width:w,height:20,background:isOverdue(row)?"#e2445c":SC[row.status]||"#579bfc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:9,fontWeight:600,overflow:"hidden",padding:"0 3px",transition:"filter .15s"}} onMouseEnter={e2=>e2.currentTarget.style.filter="brightness(1.1)"} onMouseLeave={e2=>e2.currentTarget.style.filter="brightness(1)"}>{(row.task||"").slice(0,18)}</div></div>);})}</div>
+  const rowH=34;const headerH=40;const taskColW=220;
+  /* Build dependency links */
+  const taskMap={};wt.forEach(({row},i)=>{taskMap[(row.task||"").toLowerCase()]=i;});
+  const deps=[];
+  wt.forEach(({row},toIdx)=>{
+    if(!row.dependentOn)return;
+    row.dependentOn.split(/[,;]/).map(s=>s.trim().toLowerCase()).filter(Boolean).forEach(depName=>{
+      const fromIdx=taskMap[depName];
+      if(fromIdx!=null&&fromIdx!==toIdx){deps.push({fromIdx,toIdx,fromRow:wt[fromIdx].row,toRow:wt[toIdx].row});}
+    });
+  });
+  const getBarPos=(row)=>{const s=new Date(row.tlStart),e=new Date(row.tlEnd);const l=((s-mn)/(864e5))*cw;const w=Math.max(cw/2,((e-s)/(864e5))*cw);return{x:l,w};};
+  return(<div style={{overflowX:"auto"}}><div style={{display:"flex",minWidth:days.length*cw+taskColW,position:"relative"}}>
+    <div style={{width:taskColW,flexShrink:0,borderRight:"1px solid #e6e9ef",zIndex:2,background:"#fff"}}><div style={{height:headerH,padding:"8px 12px",fontWeight:700,fontSize:12,color:"#666",borderBottom:"1px solid #e6e9ef"}}>Task</div>
+      {wt.map(({row})=>(<div key={row.id} style={{height:rowH,padding:"0 12px",display:"flex",alignItems:"center",fontSize:12,borderBottom:"1px solid #f5f5f5",color:isOverdue(row)?"#e2445c":"#333",fontWeight:isOverdue(row)?600:400,gap:4}}>
+        {isOverdue(row)&&<span>⚠</span>}{(row.task||"").slice(0,28)}
+        {row.dependentOn&&<span title={"Depends on: "+row.dependentOn} style={{fontSize:9,color:"#a25ddc",flexShrink:0}}>🔗</span>}
+      </div>))}</div>
+    <div style={{flex:1,position:"relative"}}><div style={{display:"flex",height:headerH,borderBottom:"1px solid #e6e9ef"}}>{days.map((d,i)=>{const isToday=d.toDateString()===new Date().toDateString();return(<div key={i} style={{width:cw,flexShrink:0,textAlign:"center",fontSize:8,color:isToday?"#0073ea":"#999",padding:"4px 0",borderRight:"1px solid #f5f5f5",background:isToday?"#e6f0ff":"transparent",fontWeight:isToday?700:400}}><div>{d.toLocaleDateString("en-US",{month:"short"})}</div><div>{d.getDate()}</div></div>);})}</div>
+      {wt.map(({row})=>{const{x:l,w}=getBarPos(row);return(<div key={row.id} style={{height:rowH,position:"relative",borderBottom:"1px solid #f5f5f5"}}><div style={{position:"absolute",left:l,top:7,width:w,height:20,background:isOverdue(row)?"#e2445c":SC[row.status]||"#579bfc",borderRadius:4,display:"flex",alignItems:"center",justifyContent:"center",color:"#fff",fontSize:9,fontWeight:600,overflow:"hidden",padding:"0 3px",transition:"filter .15s",zIndex:1}} onMouseEnter={e2=>e2.currentTarget.style.filter="brightness(1.1)"} onMouseLeave={e2=>e2.currentTarget.style.filter="brightness(1)"}>{(row.task||"").slice(0,18)}</div></div>);})}
+      {/* Dependency arrows */}
+      {deps.length>0&&<svg style={{position:"absolute",top:headerH,left:0,width:"100%",height:wt.length*rowH,pointerEvents:"none",zIndex:3}}>
+        <defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#a25ddc" opacity="0.7"/></marker></defs>
+        {deps.map((dep,di)=>{
+          const fromBar=getBarPos(dep.fromRow);const toBar=getBarPos(dep.toRow);
+          const x1=fromBar.x+fromBar.w;const y1=dep.fromIdx*rowH+rowH/2;
+          const x2=toBar.x;const y2=dep.toIdx*rowH+rowH/2;
+          const midX=x1+(x2-x1)/2;
+          return(<path key={di} d={`M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`} fill="none" stroke="#a25ddc" strokeWidth="1.5" strokeDasharray="4 2" opacity="0.6" markerEnd="url(#arrowhead)"/>);
+        })}
+      </svg>}
+    </div>
   </div></div>);
 });
 
@@ -916,7 +957,7 @@ const DetailPanel=({row,gId,onUpdate,onAddUpdate,onClose,people,statuses,priorit
         </div>
         {(row.subitems||[]).length>0&&<div style={{marginTop:12,borderTop:"1px solid #f0f0f0",paddingTop:12}}><div style={{fontSize:12,fontWeight:700,color:"#666",marginBottom:8}}>SUBITEMS ({row.subitems.length})</div>{row.subitems.map(si=>(<div key={si.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 10px",background:"#f7f8fa",borderRadius:6,marginBottom:4}}><span style={{flex:1,fontSize:12}}>{si.task||"Untitled"}</span><span style={{fontSize:11,padding:"2px 6px",borderRadius:3,background:SC[si.status]||"#ccc",color:"#fff"}}>{si.status}</span></div>))}</div>}
       </div>}
-      {tab==="updates"&&<div>{(row.updates||[]).length===0&&<div style={{color:"#aaa",textAlign:"center",padding:30,fontSize:13}}>No updates</div>}{(row.updates||[]).slice().reverse().map(u=>(<div key={u.id} style={{marginBottom:10,padding:"10px 14px",background:"#f7f8fa",borderRadius:8,borderLeft:"3px solid #0073ea"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{u.author}</span><span style={{fontSize:11,color:"#999"}}>{u.time}</span></div><div style={{fontSize:13,color:"#444"}}>{u.text}</div></div>))}<div style={{marginTop:12}}><UpdateInput onPost={t=>onAddUpdate(t)}/></div></div>}
+      {tab==="updates"&&<div>{(row.updates||[]).length===0&&<div style={{color:"#aaa",textAlign:"center",padding:30,fontSize:13}}>No updates</div>}{(row.updates||[]).slice().reverse().map(u=>(<div key={u.id} style={{marginBottom:10,padding:"10px 14px",background:"#f7f8fa",borderRadius:8,borderLeft:"3px solid #0073ea"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{u.author}</span><span style={{fontSize:11,color:"#999"}}>{u.time}</span></div><div style={{fontSize:13,color:"#444"}}>{renderMentionText(u.text,people)}</div></div>))}<div style={{marginTop:12}}><UpdateInput onPost={t=>onAddUpdate(t)} people={people}/></div></div>}
       {tab==="activity"&&<div style={{fontSize:13,color:"#888"}}><div style={{padding:"8px 0",borderBottom:"1px solid #f0f0f0"}}>Item created</div>{(row.updates||[]).map(u=>(<div key={u.id} style={{padding:"8px 0",borderBottom:"1px solid #f0f0f0"}}><b>{u.author}</b> posted update — {u.time}</div>))}{row.completionDate&&<div style={{padding:"8px 0",background:"#f0fff4",borderRadius:4,paddingLeft:8,marginTop:4}}><b>✓ Completed</b> — {row.completionDate} {row.completionStatus&&row.completionStatus!=="-"&&<span style={{background:COMP_SC[row.completionStatus],color:"#fff",borderRadius:4,padding:"1px 6px",fontSize:11,marginLeft:4}}>{row.completionStatus}</span>}</div>}</div>}
     </div>
   </SidePanel>);
@@ -1469,7 +1510,23 @@ export default function App(){
   const undoRef=useRef([]);const UNDO_MAX=40;
   const snap=useCallback(()=>{setBoards(cur=>{undoRef.current=[...undoRef.current.slice(-(UNDO_MAX-1)),cur];return cur;});},[]);
   const undo=useCallback(()=>{if(!undoRef.current.length)return;const prev=undoRef.current[undoRef.current.length-1];undoRef.current=undoRef.current.slice(0,-1);setBoards(prev);setToast("↩ Undo successful");},[]);
-  useEffect(()=>{const h=e=>{if((e.ctrlKey||e.metaKey)&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo();}};document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[undo]);
+  useEffect(()=>{const h=e=>{
+    const mod=e.ctrlKey||e.metaKey;const tag=e.target?.tagName;const isInput=tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT";
+    /* Ctrl+Z — Undo */
+    if(mod&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo();return;}
+    /* Ctrl+D — Duplicate selected rows */
+    if(mod&&e.key==="d"&&selCount>0){e.preventDefault();bulkDuplicate();return;}
+    /* Ctrl+F — Focus search */
+    if(mod&&e.key==="f"){e.preventDefault();setSearchOpen(true);setTimeout(()=>{const el=document.querySelector('[data-search-input]');if(el)el.focus();},50);return;}
+    /* Ctrl+N — New item */
+    if(mod&&e.key==="n"){e.preventDefault();if(board?.groups?.[0]?.id)addRow(board.groups[0].id);return;}
+    /* Escape — Close panels */
+    if(e.key==="Escape"){if(detailPanel){setDetailPanel(null);return;}if(updPanel){setUpdPanel(null);return;}if(sharePanel){setSharePanel(false);return;}if(wsSharePanel){setWsSharePanel(false);return;}if(adminOpen){setAdminOpen(false);return;}if(historyOpen){setHistoryOpen(false);return;}if(autoPanel){setAutoPanel(false);return;}if(templateModal){setTemplateModal(false);return;}if(searchOpen){setSearchOpen(false);setSearch("");return;}if(filterOpen){setFilterOpen(false);return;}}
+    /* Tab in table inputs — move to next cell */
+    if(e.key==="Tab"&&isInput&&e.target.closest('[data-row-id]')){
+      e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const idx=cells.indexOf(e.target);const next=e.shiftKey?idx-1:idx+1;if(next>=0&&next<cells.length){cells[next].focus();cells[next].select?.();}
+    }
+  };document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[undo,selCount,board,detailPanel,updPanel,sharePanel,wsSharePanel,adminOpen,historyOpen,autoPanel,templateModal,searchOpen,filterOpen]);
   const [workspaces,setWorkspaces]=useState(INIT_WS);const [activeWs,setActiveWs]=useState("ws_it");const [wsPickerOpen,setWsPickerOpen]=useState(false);
   const [catCol,setCatCol]=useState({"ACTIVE":false,"IN PROGRESS":false,"COMPLETED":true,"STALLED":true,"ON HOLD":true});
   const [people,setPeople]=useState(PEOPLE);const [statuses,setStatuses]=useState(STATS);const [priorities,setPriorities]=useState(PRIS);const [allTags,setAllTags]=useState(TAGS);
@@ -1811,7 +1868,7 @@ export default function App(){
             <div style={{flex:1}}/>
             <span onClick={()=>setActivityOpen(true)} style={{cursor:"pointer",fontSize:18}} title="Activity">📊</span>
             <div style={{position:"relative"}}><span onClick={()=>setNotifsOpen(true)} style={{cursor:"pointer",fontSize:18}}>🔔</span>{unreadCount>0&&<span style={{position:"absolute",top:-4,right:-6,background:"#e2445c",color:"#fff",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{unreadCount}</span>}</div>
-            {searchOpen?<div style={{display:"flex",alignItems:"center",gap:6,background:"#f0f2f5",borderRadius:6,padding:"4px 10px"}}><input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{border:"none",background:"transparent",outline:"none",fontSize:13,width:150}} autoFocus/><span onClick={()=>{setSearchOpen(false);setSearch("");}} style={{cursor:"pointer",color:"#999"}}>✕</span></div>:<span onClick={()=>setSearchOpen(true)} style={{cursor:"pointer",fontSize:18}}>🔍</span>}
+            {searchOpen?<div style={{display:"flex",alignItems:"center",gap:6,background:"#f0f2f5",borderRadius:6,padding:"4px 10px"}}><input data-search-input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{border:"none",background:"transparent",outline:"none",fontSize:13,width:150}} autoFocus/><span onClick={()=>{setSearchOpen(false);setSearch("");}} style={{cursor:"pointer",color:"#999"}}>✕</span></div>:<span onClick={()=>setSearchOpen(true)} style={{cursor:"pointer",fontSize:18}}>🔍</span>}
             <span onClick={undo} title={"Undo (Ctrl+Z)"+(undoRef.current.length?" · "+undoRef.current.length+" steps":"")} style={{cursor:undoRef.current.length?"pointer":"default",fontSize:18,opacity:undoRef.current.length?1:0.3,transition:"opacity .2s"}}>↩</span>
             <div style={{position:"relative"}}><span onClick={()=>setHistoryOpen(true)} style={{cursor:"pointer",fontSize:18}}>📜</span>{histBadge>0&&<span style={{position:"absolute",top:-4,right:-6,background:"#6c5ce7",color:"#fff",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{histBadge>99?"99+":histBadge}</span>}</div>
             <div ref={ioRef} style={{position:"relative"}}>
@@ -1901,7 +1958,7 @@ export default function App(){
                 {rows.map(row=>{
                   const linked=boards.find(b=>b.linkedMainItemName===row.task&&!b.isMain);
                   const prog=row.projectProgress||0;
-                  return(<div key={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",minWidth:"fit-content"}} draggable onDragStart={()=>setDragRow({gId:group.id,rId:row.id})} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)} onMouseEnter={e=>e.currentTarget.style.background="#f8faff"} onMouseLeave={e=>e.currentTarget.style.background="transparent"} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"row",gId:group.id,rId:row.id,groups:board.groups});}}>
+                  return(<div key={row.id} data-row-id={row.id} style={{display:"flex",borderBottom:"1px solid #f0f0f0",minWidth:"fit-content"}} draggable onDragStart={()=>setDragRow({gId:group.id,rId:row.id})} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)} onMouseEnter={e=>e.currentTarget.style.background="#f8faff"} onMouseLeave={e=>e.currentTarget.style.background="transparent"} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"row",gId:group.id,rId:row.id,groups:board.groups});}}>
                     <div style={{width:44,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><input type="checkbox" checked={row.checked||false} onChange={e=>upRow(group.id,row.id,"checked",e.target.checked)} style={{margin:0}}/></div>
                     {visCols.map(col=>{
                       if(col.id==="task")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",display:"flex",alignItems:"center",gap:6,fontWeight:600,fontSize:13,borderRight:"1px solid #f5f5f5"}}>
@@ -1949,7 +2006,7 @@ export default function App(){
                   <div onClick={e=>{e.stopPropagation();setColCtx({x:e.clientX,y:e.clientY,colId:null,gId:group.id,addOnly:true});}} style={{width:36,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#aaa",fontSize:18}} title="Add column">+</div>
                 </div>
                 {rows.map(row=>{const hasSub=(row.subitems||[]).length>0;const isExp=expandedSub[row.id];const od=isOverdue(row);const isSynced=!!row._syncReadonly;return(<div key={row.id}>
-                  <div draggable={!isSynced} onDragStart={()=>{if(!isSynced)setDragRow({gId:group.id,rId:row.id});}} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)}
+                  <div data-row-id={row.id} draggable={!isSynced} onDragStart={()=>{if(!isSynced)setDragRow({gId:group.id,rId:row.id});}} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)}
                     onContextMenu={e=>{e.preventDefault();if(!isSynced)setCtxMenu({x:e.clientX,y:e.clientY,type:"row",gId:group.id,rId:row.id,groups:board.groups});}}
                     style={{display:"flex",borderBottom:"1px solid #f0f0f0",minWidth:"fit-content",cursor:isSynced?"default":"grab",borderLeft:isSynced?"3px solid #a25ddc":od?"3px solid #e2445c":"3px solid transparent",background:isSynced?"#faf8ff":"transparent",transition:"all .1s"}} onMouseEnter={e=>{if(!isSynced)e.currentTarget.style.background="#f8faff";}} onMouseLeave={e=>{e.currentTarget.style.background=isSynced?"#faf8ff":"transparent";}}>
                     <div style={{width:44,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",gap:1}}>
@@ -2002,7 +2059,7 @@ export default function App(){
           </div>
         </div>))}
       </div></SidePanel>}
-      {updPanel&&updRow&&<SidePanel title={updRow.task} sub="Updates" onClose={()=>setUpdPanel(null)}><div style={{flex:1,overflowY:"auto",padding:16}}>{(updRow.updates||[]).length===0&&<div style={{color:"#aaa",textAlign:"center",padding:30}}>No updates</div>}{(updRow.updates||[]).slice().reverse().map(u=>(<div key={u.id} style={{marginBottom:10,padding:"10px 14px",background:"#f7f8fa",borderRadius:8,borderLeft:"3px solid #0073ea"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{u.author}</span><span style={{fontSize:11,color:"#999"}}>{u.time}</span></div><div style={{fontSize:13,color:"#444"}}>{u.text}</div></div>))}</div><div style={{padding:16,borderTop:"1px solid #eee"}}><UpdateInput onPost={t=>addUpdate(updPanel.gId,updPanel.rId,t)}/></div></SidePanel>}
+      {updPanel&&updRow&&<SidePanel title={updRow.task} sub="Updates" onClose={()=>setUpdPanel(null)}><div style={{flex:1,overflowY:"auto",padding:16}}>{(updRow.updates||[]).length===0&&<div style={{color:"#aaa",textAlign:"center",padding:30}}>No updates</div>}{(updRow.updates||[]).slice().reverse().map(u=>(<div key={u.id} style={{marginBottom:10,padding:"10px 14px",background:"#f7f8fa",borderRadius:8,borderLeft:"3px solid #0073ea"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{u.author}</span><span style={{fontSize:11,color:"#999"}}>{u.time}</span></div><div style={{fontSize:13,color:"#444"}}>{renderMentionText(u.text,people)}</div></div>))}</div><div style={{padding:16,borderTop:"1px solid #eee"}}><UpdateInput onPost={t=>addUpdate(updPanel.gId,updPanel.rId,t)} people={people}/></div></SidePanel>}
       {detailPanel&&detailRow&&<DetailPanel row={detailRow} gId={detailGId} onUpdate={(f,v)=>upRow(detailGId,detailRow.id,f,v)} onAddUpdate={t=>addUpdate(detailGId,detailRow.id,t)} onClose={()=>setDetailPanel(null)} people={people} statuses={statuses} priorities={priorities}/>}
       {notifsOpen&&<NotifsPanel notifs={notifs} setNotifs={setNotifs} onClose={()=>setNotifsOpen(false)}/>}
       {activityOpen&&<ActivityPanel boards={boards} onClose={()=>setActivityOpen(false)}/>}
