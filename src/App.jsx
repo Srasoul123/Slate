@@ -139,6 +139,7 @@ const useOutsideClick=(ref,onClose,active=true)=>{useEffect(()=>{if(!active)retu
 const Toggle=({on,onToggle})=>(<div onClick={onToggle} style={{width:36,height:20,borderRadius:10,background:on?"#00c875":"#ccc",cursor:"pointer",position:"relative",flexShrink:0}}><div style={{width:16,height:16,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:on?18:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/></div>);
 const Initials=(name)=>name?name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase():"?";
 
+const APP_VERSION="1.4.0";
 const ts=()=>new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const CL=["#579bfc","#00c875","#a25ddc","#fdab3d","#e2445c","#037f4c","#ff642e","#00d2d2","#bb3354","#175a63"];
 const SC={"Done":"#00c875","Working on it":"#fdab3d","Stuck":"#e2445c","Not Started":"#c4c4c4","Future steps":"#a25ddc","In Progress":"#0073ea","Waiting":"#7c5cfc","Review":"#037f4c"};
@@ -1363,6 +1364,7 @@ const AuthScreen=({onAuth})=>{
         </div>}
       </div>
     </div>
+    <div style={{textAlign:"center",marginTop:12,fontSize:10,color:"rgba(0,0,0,.2)"}}>v{APP_VERSION}</div>
   </div>);
 };
 
@@ -1792,6 +1794,7 @@ export default function App(){
           <div style={{padding:"8px 12px",borderTop:"1px solid rgba(255,255,255,.08)",display:"flex",gap:6}}>
             <button onClick={()=>setTemplateModal(true)} style={{flex:1,padding:"7px",background:"#6c5ce7",color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600}}>+ New board</button>
           </div>
+          <div style={{padding:"4px 12px 8px",textAlign:"center"}}><span style={{fontSize:9,color:"rgba(255,255,255,.2)",letterSpacing:.5}}>v{APP_VERSION}</span></div>
         </div>}
       </div>
 
