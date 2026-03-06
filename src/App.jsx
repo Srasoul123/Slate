@@ -1059,7 +1059,7 @@ const SelectionBar=({count,groups,statuses,priorities,onDuplicate,onDelete,onMov
 };
 
 /* ─── USER MENU PANEL ─── */
-const UserMenu=({currentUser,setCurrentUser,onOpenAdmin,onClose,teamMembers})=>{
+const UserMenu=({currentUser,setCurrentUser,onOpenAdmin,onClose,teamMembers,onLogout})=>{
   const ref=useRef();
   const [editingName,setEditingName]=useState(false);
   const [nameVal,setNameVal]=useState(currentUser.name);
@@ -1119,7 +1119,7 @@ const UserMenu=({currentUser,setCurrentUser,onOpenAdmin,onClose,teamMembers})=>{
     </div>
     <div style={{borderTop:"1px solid #f0f0f0",padding:"6px 0"}}>
       {isAdmin&&mi("⚙️","Admin Settings","Manage team & permissions",onOpenAdmin)}
-      {mi("🚪","Log out","Switch to a different account",()=>{if(confirm("Log out? You'll be asked for your name again next time.")){try{localStorage.removeItem("slate_user");}catch(e){}window.location.reload();}},true)}
+      {mi("🚪","Log out","Sign out of your account",()=>{if(confirm("Log out of Slate?")){onLogout();}},true)}
     </div>
   </div>);
 };
@@ -1204,6 +1204,128 @@ const AdminPanel=({teamMembers,setTeamMembers,currentUser,onClose})=>{
   </div>);
 };
 
+/* ─── AUTH SYSTEM ─── */
+const AUTH_ADMIN={email:"admin",password:"admin",name:"Admin",role:"Admin"};
+const getUsers=()=>{try{return JSON.parse(localStorage.getItem("slate_users")||"[]");}catch(e){return[];}};
+const saveUsers=(u)=>{try{localStorage.setItem("slate_users",JSON.stringify(u));}catch(e){}};
+const getAuth=()=>{try{const s=localStorage.getItem("slate_auth");return s?JSON.parse(s):null;}catch(e){return null;}};
+const saveAuth=(a)=>{try{if(a)localStorage.setItem("slate_auth",JSON.stringify(a));else localStorage.removeItem("slate_auth");}catch(e){}};
+
+const AuthScreen=({onAuth})=>{
+  const [mode,setMode]=useState("signin");/* signin | signup | verify */
+  const [email,setEmail]=useState("");const [password,setPassword]=useState("");const [confirmPw,setConfirmPw]=useState("");
+  const [name,setName]=useState("");const [error,setError]=useState("");const [loading,setLoading]=useState(false);
+  const [verifyCode,setVerifyCode]=useState("");const [realCode,setRealCode]=useState("");const [pendingUser,setPendingUser]=useState(null);
+
+  const doSignIn=()=>{
+    setError("");
+    if(!email.trim()||!password.trim()){setError("Please fill in all fields.");return;}
+    /* admin backend */
+    if(email.trim().toLowerCase()===AUTH_ADMIN.email&&password===AUTH_ADMIN.password){
+      const u={id:"u_admin",name:AUTH_ADMIN.name,email:"admin@slate.app",role:"Admin",color:"#6c5ce7",notifs:true,compact:false,darkSidebar:true,statusMsg:""};
+      saveAuth(u);onAuth(u);return;
+    }
+    /* check registered users */
+    const users=getUsers();
+    const found=users.find(u=>u.email.toLowerCase()===email.trim().toLowerCase());
+    if(!found){setError("No account found with this email.");return;}
+    if(found.password!==password){setError("Incorrect password.");return;}
+    if(!found.verified){setError("Please verify your email first. Check your inbox.");return;}
+    const sess={...found};delete sess.password;
+    saveAuth(sess);onAuth(sess);
+  };
+
+  const doSignUp=()=>{
+    setError("");
+    if(!name.trim()||!email.trim()||!password.trim()){setError("Please fill in all fields.");return;}
+    if(!email.includes("@")){setError("Please enter a valid email address.");return;}
+    if(password.length<4){setError("Password must be at least 4 characters.");return;}
+    if(password!==confirmPw){setError("Passwords don't match.");return;}
+    const users=getUsers();
+    if(users.find(u=>u.email.toLowerCase()===email.trim().toLowerCase())){setError("An account with this email already exists.");return;}
+    const code=String(Math.floor(1000+Math.random()*9000));
+    const newUser={id:uid(),name:name.trim(),email:email.trim().toLowerCase(),password,role:"Member",color:AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)],verified:false,notifs:true,compact:false,darkSidebar:true,statusMsg:""};
+    setPendingUser(newUser);setRealCode(code);setMode("verify");
+  };
+
+  const doVerify=()=>{
+    setError("");
+    if(verifyCode!==realCode){setError("Incorrect code. Please try again.");return;}
+    const verified={...pendingUser,verified:true};
+    const users=getUsers();users.push(verified);saveUsers(users);
+    const sess={...verified};delete sess.password;
+    saveAuth(sess);onAuth(sess);
+  };
+
+  const doSSO=(provider)=>{
+    setError("");setLoading(true);
+    setTimeout(()=>{setLoading(false);setError(provider+" SSO is not configured yet. Use email/password or the admin account to sign in.");},1500);
+  };
+
+  const inp=(val,set,placeholder,type="text")=>(<input value={val} onChange={e=>set(e.target.value)} placeholder={placeholder} type={type} onKeyDown={e=>{if(e.key==="Enter"){if(mode==="signin")doSignIn();else if(mode==="signup")doSignUp();else doVerify();}}} style={{width:"100%",padding:"12px 16px",border:"1px solid #e0e0e0",borderRadius:8,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:10,transition:"border .15s"}} onFocus={e=>e.currentTarget.style.borderColor="#6c5ce7"} onBlur={e=>e.currentTarget.style.borderColor="#e0e0e0"}/>);
+
+  const ssoBtn=(icon,label,provider,bg)=>(<button onClick={()=>doSSO(provider)} disabled={loading} style={{flex:1,padding:"10px 12px",border:"1px solid #e0e0e0",borderRadius:8,background:bg||"#fff",cursor:"pointer",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:bg?"#fff":"#333",transition:"all .12s"}} onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,.1)";}} onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";}}>{icon}{label}</button>);
+
+  return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#f0eeff 0%,#e8f4fd 50%,#f0fffe 100%)",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
+    <div style={{width:420,background:"#fff",borderRadius:16,boxShadow:"0 20px 60px rgba(108,92,231,.12)",overflow:"hidden"}}>
+      <div style={{padding:"32px 32px 20px",textAlign:"center",background:"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:8}}><Logo size={36}/><span style={{fontSize:26,fontWeight:800,letterSpacing:1}}>slate</span></div>
+        <div style={{fontSize:13,opacity:.8}}>Project Management for Teams</div>
+      </div>
+
+      <div style={{padding:"24px 32px 32px"}}>
+        {mode!=="verify"&&<div style={{display:"flex",marginBottom:20,background:"#f5f6f8",borderRadius:8,padding:3}}>
+          {[["signin","Sign In"],["signup","Sign Up"]].map(([k,l])=>(<button key={k} onClick={()=>{setMode(k);setError("");}} style={{flex:1,padding:"8px 0",border:"none",borderRadius:6,background:mode===k?"#fff":"transparent",color:mode===k?"#6c5ce7":"#888",fontSize:13,fontWeight:mode===k?700:400,cursor:"pointer",boxShadow:mode===k?"0 1px 3px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>))}
+        </div>}
+
+        {mode==="signin"&&<div>
+          {inp(email,setEmail,"Email or username")}
+          {inp(password,setPassword,"Password","password")}
+          <button onClick={doSignIn} style={{width:"100%",padding:"12px",border:"none",borderRadius:8,background:"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:16,transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=.9} onMouseLeave={e=>e.currentTarget.style.opacity=1}>Sign In</button>
+          <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16}}><div style={{flex:1,height:1,background:"#e0e0e0"}}/><span style={{fontSize:11,color:"#999"}}>or continue with</span><div style={{flex:1,height:1,background:"#e0e0e0"}}/></div>
+          <div style={{display:"flex",gap:10}}>
+            {ssoBtn(<svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>,"Google","Google")}
+            {ssoBtn(<svg width="16" height="16" viewBox="0 0 23 23"><path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/></svg>,"Microsoft","Microsoft")}
+          </div>
+        </div>}
+
+        {mode==="signup"&&<div>
+          {inp(name,setName,"Full name")}
+          {inp(email,setEmail,"Email address","email")}
+          {inp(password,setPassword,"Password (min 4 chars)","password")}
+          {inp(confirmPw,setConfirmPw,"Confirm password","password")}
+          <button onClick={doSignUp} style={{width:"100%",padding:"12px",border:"none",borderRadius:8,background:"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=.9} onMouseLeave={e=>e.currentTarget.style.opacity=1}>Create Account</button>
+        </div>}
+
+        {mode==="verify"&&<div style={{textAlign:"center"}}>
+          <div style={{fontSize:40,marginBottom:12}}>📧</div>
+          <div style={{fontSize:16,fontWeight:700,color:"#1a1a2e",marginBottom:6}}>Verify your email</div>
+          <div style={{fontSize:13,color:"#888",marginBottom:6}}>We sent a verification code to</div>
+          <div style={{fontSize:13,fontWeight:700,color:"#6c5ce7",marginBottom:16}}>{pendingUser?.email}</div>
+          <div style={{background:"#f8f5ff",border:"1px dashed #6c5ce7",borderRadius:8,padding:"12px 16px",marginBottom:16,fontSize:13,color:"#6c5ce7"}}>
+            <div style={{fontSize:11,color:"#999",marginBottom:4}}>Demo mode — your code is:</div>
+            <div style={{fontSize:28,fontWeight:800,letterSpacing:8}}>{realCode}</div>
+          </div>
+          {inp(verifyCode,setVerifyCode,"Enter 4-digit code")}
+          <button onClick={doVerify} style={{width:"100%",padding:"12px",border:"none",borderRadius:8,background:"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10}}>Verify & Sign In</button>
+          <button onClick={()=>{setMode("signup");setError("");}} style={{background:"none",border:"none",color:"#888",cursor:"pointer",fontSize:12}}>← Back to Sign Up</button>
+        </div>}
+
+        {error&&<div style={{background:"#fff0f0",border:"1px solid #ffd0d0",borderRadius:8,padding:"10px 14px",marginTop:10,fontSize:13,color:"#e2445c",display:"flex",alignItems:"center",gap:8}}><span>⚠</span>{error}</div>}
+        {loading&&<div style={{textAlign:"center",padding:16,color:"#6c5ce7",fontSize:13}}>Connecting...</div>}
+
+        {mode==="signin"&&<div style={{textAlign:"center",marginTop:16,fontSize:12,color:"#999"}}>
+          <div style={{background:"#f5f6f8",borderRadius:8,padding:"10px 14px",border:"1px solid #e6e9ef"}}>
+            <div style={{fontWeight:600,color:"#666",marginBottom:4}}>Demo Admin Account</div>
+            <span>Username: <b style={{color:"#333"}}>admin</b></span>{" · "}
+            <span>Password: <b style={{color:"#333"}}>admin</b></span>
+          </div>
+        </div>}
+      </div>
+    </div>
+  </div>);
+};
+
 /* ─── PURE HELPERS (module-level = no recreation per render) ─── */
 const _mapGR=(b,gId,fn)=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:fn(g.rows)})});
 const _mapAllR=(b,fn)=>({...b,groups:b.groups.map(g=>({...g,rows:fn(g.rows)}))});
@@ -1237,8 +1359,12 @@ export default function App(){
   const [dragCol,setDragCol]=useState(null);const [dragOverCol,setDragOverCol]=useState(null);
   const [ioMenuOpen,setIoMenuOpen]=useState(false);const ioRef=useRef(null);const importRef=useRef(null);const contentRef=useRef(null);
   /* ─── User identity & admin ─── */
-  const [currentUser,setCurrentUser]=useState(()=>{try{const s=localStorage.getItem("slate_user");if(s){const u=JSON.parse(s);if(u&&u.name)return u;}}catch(e){}const name=prompt("Welcome to Slate! Enter your name:")||"Guest";const u={id:uid(),name,email:"",role:"Admin",color:AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)],notifs:true,compact:false,darkSidebar:true,statusMsg:""};try{localStorage.setItem("slate_user",JSON.stringify(u));}catch(e){}return u;});
+  const [authedUser,setAuthedUser]=useState(()=>getAuth());
+  const [currentUser,setCurrentUser]=useState(()=>{const a=getAuth();return a||{id:"u_guest",name:"Guest",email:"",role:"Viewer",color:"#c4c4c4",notifs:true,compact:false,darkSidebar:true,statusMsg:""};});
+  useEffect(()=>{if(authedUser){setCurrentUser(prev=>{const merged={...prev,...authedUser};try{localStorage.setItem("slate_user",JSON.stringify(merged));}catch(e){}return merged;});}},[authedUser]);
   useEffect(()=>{try{localStorage.setItem("slate_user",JSON.stringify(currentUser));}catch(e){}},[currentUser]);
+  const onAuth=(u)=>{setAuthedUser(u);setCurrentUser(u);};
+  const onLogout=()=>{saveAuth(null);setAuthedUser(null);setUserMenuOpen(false);};
   const [teamMembers,setTeamMembers]=useState(DEFAULT_TEAM);
   const [userMenuOpen,setUserMenuOpen]=useState(false);
   const [adminOpen,setAdminOpen]=useState(false);
@@ -1400,6 +1526,9 @@ export default function App(){
   const histItems=useMemo(()=>boards.filter(b=>histFilter==="all"||b.id===histFilter).flatMap(b=>(b.hist||[]).map(h=>({...h,board:b.name,boardId:b.id}))),[boards,histFilter]);
 
   const SyncBanner=useCallback(({icon,title,sub,pill,pillBg})=>(<div style={{background:"linear-gradient(90deg,#f0f0ff,#f0fffe)",border:"1px solid #d8d4ff",borderRadius:8,padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10,fontSize:13,flexWrap:"wrap"}}><span style={{fontWeight:600}}>{icon} {title}</span><span style={{color:"#888"}}>{sub}</span>{pill&&<span style={{marginLeft:"auto",background:pillBg||"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",borderRadius:20,padding:"2px 12px",fontSize:11,fontWeight:700}}>{pill}</span>}</div>),[]);
+
+  if(!authedUser) return (<AuthScreen onAuth={onAuth}/>);
+
   return(
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",height:"100vh",display:"flex",background:"#f6f7fb",userSelect:resizing?"none":"auto"}}>
       <div style={{width:sideCol?48:260,background:"#292f4c",color:"#fff",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .2s",overflow:"hidden"}}>
@@ -1503,7 +1632,7 @@ export default function App(){
                 <span style={{fontSize:12,fontWeight:600,color:"#333",maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</span>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
-              {userMenuOpen&&<UserMenu currentUser={currentUser} setCurrentUser={setCurrentUser} teamMembers={teamMembers} onOpenAdmin={()=>{setUserMenuOpen(false);setAdminOpen(true);}} onClose={()=>setUserMenuOpen(false)}/>}
+              {userMenuOpen&&<UserMenu currentUser={currentUser} setCurrentUser={setCurrentUser} teamMembers={teamMembers} onOpenAdmin={()=>{setUserMenuOpen(false);setAdminOpen(true);}} onClose={()=>setUserMenuOpen(false)} onLogout={onLogout}/>}
             </div>
           </div>
           {editDesc?<div style={{paddingBottom:6}}><input value={descVal} onChange={e=>setDescVal(e.target.value)} onBlur={()=>{saveDesc(activeId,descVal);setEditDesc(false);}} onKeyDown={e=>{if(e.key==="Enter"){saveDesc(activeId,descVal);setEditDesc(false);}}} style={{width:"100%",border:"none",borderBottom:"1px solid #ddd",fontSize:13,color:"#666",outline:"none",padding:"2px 0",boxSizing:"border-box"}} autoFocus/></div>
