@@ -12,21 +12,33 @@ function dlSheets(name,sheets){
   dlFile(name,csv,"text/csv;charset=utf-8;",".csv");
 }
 
-var EXP_COL_MAP={"task":"Task","owner":"Owner","status":"Status","priority":"Priority","tlStart":"Start Date","tlEnd":"End Date","tags":"Tags","notes":"Notes","weeklyUpdate":"Weekly Update","completionDate":"Comp. Date","completionStatus":"Comp. Status","dependentOn":"Dep. On","plannedEffort":"Planned","effortSpent":"Spent","timetracked":"Time Tracked"};
-var EXP_MAIN_MAP={"task":"Project","owner":"PM","status":"Status","priority":"Priority","tltype":"Timeline Type","customer":"Customer","team":"Team","progress":"Progress","weeklyUpdate":"Weekly Update"};
+var EXP_COL_MAP={"task":"Name","owner":"Person","status":"Status","priority":"Priority","tlStart":"Timeline Start","tlEnd":"Timeline End","tags":"Labels","notes":"Text","weeklyUpdate":"Updates","completionDate":"Date","completionStatus":"Completion Status","dependentOn":"Dependencies","plannedEffort":"Planned","effortSpent":"Spent","timetracked":"Time Tracking"};
+var EXP_MAIN_MAP={"task":"Name","owner":"Person","status":"Status","priority":"Priority","tltype":"Timeline Type","customer":"Group","team":"Team","progress":"Progress","weeklyUpdate":"Updates"};
 
+/* Monday.com format: single CSV with "Group" column, timeline as "Start - End" range */
 function exportBoardToExcel(board){
   var cm=board.isMain?EXP_MAIN_MAP:EXP_COL_MAP;
-  var headers=Object.values(cm);var keys=Object.keys(cm);
-  var sheets=board.groups.map(function(g){
-    var rows=g.rows.map(function(r){return keys.map(function(k){
-      if(k==="tags")return (r.tags||[]).join(", ");
-      if(k==="progress")return (r.projectProgress||0)+"%";
-      return r[k]!=null?String(r[k]):"";
-    });});
-    return [g.name||"Group",[headers].concat(rows)];
+  var headers=["Group/Section"].concat(Object.values(cm));var keys=Object.keys(cm);
+  var allRows=[];
+  board.groups.forEach(function(g){
+    g.rows.forEach(function(r){
+      var row=[g.name||"Group"].concat(keys.map(function(k){
+        if(k==="tags")return (r.tags||[]).join(", ");
+        if(k==="progress")return (r.projectProgress||0)+"%";
+        if(k==="tlStart"&&r.tlStart&&r.tlEnd)return r.tlStart+" - "+r.tlEnd;
+        if(k==="tlEnd"&&r.tlStart)return "";
+        return r[k]!=null?String(r[k]):"";
+      }));
+      allRows.push(row);
+    });
   });
-  dlSheets(board.name||"board",sheets);
+  /* Remove empty Timeline End column if we merged into Timeline Start */
+  if(!board.isMain){
+    var endIdx=headers.indexOf("Timeline End");
+    if(endIdx>-1){headers.splice(endIdx,1);allRows.forEach(function(r){r.splice(endIdx,1);});headers[headers.indexOf("Timeline Start")]="Timeline";}
+  }
+  var csv="\uFEFF"+[headers].concat(allRows).map(function(r){return r.map(csvEsc).join(",");}).join("\n");
+  dlFile((board.name||"board")+"_export",csv,"text/csv;charset=utf-8;",".csv");
 }
 
 function exportDashboardToExcel(boards){
@@ -84,22 +96,35 @@ function parseImportFile(file,cb){
       if(lines.length<2){cb(null,"File is empty or has no data rows");return;}
       var hdr=lines[0];var hdrMap={};
       hdr.forEach(function(h,idx){
-        var hl=(h||"").toLowerCase().trim();
-        if(hl.includes("task")||hl.includes("name")||hl.includes("title")||hl.includes("item"))hdrMap.task=idx;
-        else if(hl.includes("owner")||hl.includes("assigned")||hl.includes("pm"))hdrMap.owner=idx;
-        else if(hl.includes("status"))hdrMap.status=idx;
-        else if(hl.includes("priority"))hdrMap.priority=idx;
-        else if(hl.includes("start"))hdrMap.tlStart=idx;
-        else if(hl.includes("end")||hl.includes("due")||hl.includes("deadline"))hdrMap.tlEnd=idx;
-        else if(hl.includes("tag"))hdrMap.tags=idx;
-        else if(hl.includes("note")||hl.includes("description")||hl.includes("comment"))hdrMap.notes=idx;
+        var hl=(h||"").toLowerCase().trim().replace(/['"]/g,"");
+        /* Monday.com column name mappings */
+        if(hl==="name"||hl==="item"||hl.includes("task")||hl.includes("title")||hl==="subitems")hdrMap.task=idx;
+        else if(hl==="person"||hl==="owner"||hl==="assigned"||hl.includes("assignee")||hl==="pm"||hl==="people")hdrMap.owner=idx;
+        else if(hl==="status"||hl==="stage")hdrMap.status=idx;
+        else if(hl==="priority"||hl==="urgency")hdrMap.priority=idx;
+        else if(hl==="timeline"||hl==="date"||hl.includes("start")){if(!hdrMap.tlStart)hdrMap.tlStart=idx;}
+        else if(hl.includes("end")||hl.includes("due")||hl.includes("deadline")||hl==="timeline end")hdrMap.tlEnd=idx;
+        else if(hl.includes("tag")||hl==="labels"||hl==="label")hdrMap.tags=idx;
+        else if(hl.includes("note")||hl.includes("description")||hl.includes("comment")||hl==="text"||hl==="update"||hl==="updates")hdrMap.notes=idx;
+        else if(hl==="group"||hl==="group/section"||hl==="section")hdrMap._group=idx;
       });
       if(hdrMap.task==null)hdrMap.task=0;
+      /* Monday.com timeline is often "2026-01-05 - 2026-01-12" in one cell */
+      var parseTL=function(v){if(!v)return["",""];var m=v.match(/(\d{4}[-/]\d{2}[-/]\d{2})\s*[-–]\s*(\d{4}[-/]\d{2}[-/]\d{2})/);if(m)return[m[1].replace(/\//g,"-"),m[2].replace(/\//g,"-")];return[v.replace(/\//g,"-"),""];};
+      /* Monday.com statuses map */
+      var normStatus=function(s){if(!s)return"Not Started";var l=s.toLowerCase();if(l.includes("done")||l.includes("complete"))return"Done";if(l.includes("stuck")||l.includes("block"))return"Stuck";if(l.includes("progress")||l.includes("working"))return"In Progress";return s;};
+      var groupMap={};
       var rows=lines.slice(1).filter(function(l){return l.length>0&&l[hdrMap.task];}).map(function(l){
-        return {id:"id_"+Math.random().toString(36).slice(2,9),task:l[hdrMap.task]||"",owner:hdrMap.owner!=null?l[hdrMap.owner]||"":"",status:hdrMap.status!=null?l[hdrMap.status]||"Not Started":"Not Started",priority:hdrMap.priority!=null?l[hdrMap.priority]||"No Priority":"No Priority",tlStart:hdrMap.tlStart!=null?l[hdrMap.tlStart]||"":"",tlEnd:hdrMap.tlEnd!=null?l[hdrMap.tlEnd]||"":"",tags:hdrMap.tags!=null?(l[hdrMap.tags]||"").split(",").map(function(t){return t.trim();}).filter(Boolean):[],notes:hdrMap.notes!=null?l[hdrMap.notes]||"":"",timetracked:0,checked:false,updates:[],subitems:[],weeklyStatus:"",weeklyUpdate:"",completionDate:"",completionStatus:"-",dependentOn:"",plannedEffort:"",effortSpent:""};
+        var tl=hdrMap.tlStart!=null?parseTL(l[hdrMap.tlStart]):["",""];
+        var gName=hdrMap._group!=null?(l[hdrMap._group]||"Imported"):"Imported";
+        if(!groupMap[gName])groupMap[gName]=[];
+        var row={id:"id_"+Math.random().toString(36).slice(2,9),task:l[hdrMap.task]||"",owner:hdrMap.owner!=null?(l[hdrMap.owner]||"").replace(/['"]/g,""):"",status:normStatus(hdrMap.status!=null?l[hdrMap.status]:""),priority:hdrMap.priority!=null?l[hdrMap.priority]||"No Priority":"No Priority",tlStart:hdrMap.tlStart!=null?tl[0]:"",tlEnd:hdrMap.tlEnd!=null?(l[hdrMap.tlEnd]||"").replace(/\//g,"-"):tl[1],tags:hdrMap.tags!=null?(l[hdrMap.tags]||"").split(/[,;]/).map(function(t){return t.trim();}).filter(Boolean):[],notes:hdrMap.notes!=null?l[hdrMap.notes]||"":"",timetracked:0,checked:false,updates:[],subitems:[],weeklyStatus:"",weeklyUpdate:"",completionDate:"",completionStatus:"-",dependentOn:"",plannedEffort:"",effortSpent:""};
+        groupMap[gName].push(row);
+        return row;
       });
       if(!rows.length){cb(null,"No data rows found");return;}
-      cb([{id:"id_"+Math.random().toString(36).slice(2,9),name:"Imported",color:"#579bfc",collapsed:false,rows:rows}]);
+      var groups=Object.entries(groupMap).map(function(e,i){return{id:"id_"+Math.random().toString(36).slice(2,9),name:e[0],color:["#579bfc","#00c875","#fdab3d","#e2445c","#a25ddc"][i%5],collapsed:false,rows:e[1]};});
+      cb(groups);
     }catch(err){cb(null,err.message);}
   };
   reader.readAsText(file);
@@ -110,19 +135,10 @@ function parseImportFile(file,cb){
 const uid=()=>"id_"+Math.random().toString(36).slice(2,9);
 
 /* ─── SHARED HELPERS ─── */
-const hov=(bg,reset)=>({onMouseEnter:e=>{e.currentTarget.style.background=bg;},onMouseLeave:e=>{e.currentTarget.style.background=reset||"transparent";}});
 const useOutsideClick=(ref,onClose,active=true)=>{useEffect(()=>{if(!active)return;const h=e=>{if(ref.current&&!ref.current.contains(e.target))onClose();};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[ref,onClose,active]);};
 const Toggle=({on,onToggle})=>(<div onClick={onToggle} style={{width:36,height:20,borderRadius:10,background:on?"#00c875":"#ccc",cursor:"pointer",position:"relative",flexShrink:0}}><div style={{width:16,height:16,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:on?18:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/></div>);
 const Initials=(name)=>name?name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase():"?";
 
-/* ─── SHARED STYLES (module-level = zero GC pressure) ─── */
-const STY={
-  cellBorder:{borderRight:"1px solid #f5f5f5"},
-  rowBorder:{borderBottom:"1px solid #f0f0f0"},
-  grpBody:{background:"#fff",borderRadius:"0 0 8px 8px",border:"1px solid #e6e9ef",borderTop:"none"},
-  noOutline:{border:"none",background:"transparent",outline:"none"},
-  badge:(bg,fg)=>({background:bg,color:fg||"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}),
-};
 const ts=()=>new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const CL=["#579bfc","#00c875","#a25ddc","#fdab3d","#e2445c","#037f4c","#ff642e","#00d2d2","#bb3354","#175a63"];
 const SC={"Done":"#00c875","Working on it":"#fdab3d","Stuck":"#e2445c","Not Started":"#c4c4c4","Future steps":"#a25ddc","In Progress":"#0073ea","Waiting":"#7c5cfc","Review":"#037f4c"};
@@ -252,95 +268,119 @@ const BOARD_TEMPLATES=[
   {name:"Executive Summary",icon:"📑",isSummary:true,groups:[]},
 ];
 
-const INIT_WS=[{id:"ws_it",name:"IT",icon:"💻"},{id:"ws_main",name:"Main",icon:"🏠"},{id:"ws_sec",name:"Security",icon:"🔒"}];
+const INIT_WS=[{id:"ws_it",name:"IT Operations",icon:"💻",owner:"u_admin",shared:[{userId:"u_2",access:"write"},{userId:"u_3",access:"read"}]},{id:"ws_sec",name:"Cybersecurity",icon:"🔒",owner:"u_admin",shared:[{userId:"u_2",access:"write"}]},{id:"ws_infra",name:"Infrastructure",icon:"🏗️",owner:"u_admin",shared:[]}];
 const IBOARDS=[
   /* PORTFOLIO BOARD */
-  {id:"b_portfolio",name:"Active Projects",desc:"Portfolio view – status & progress auto-synced from linked boards",cat:"ACTIVE",wsId:"ws_main",icon:"📊",isMain:true,hist:[],columns:cloneCols(MAIN_COLS),groups:[
+  {id:"b_portfolio",name:"IT Portfolio 2026",desc:"All active IT projects — status & progress auto-synced from linked boards",cat:"ACTIVE",wsId:"ws_it",icon:"📊",isMain:true,owner:"u_admin",shared:[],hist:[],columns:cloneCols(MAIN_COLS),groups:[
     {id:"g_ap",name:"Active Projects",color:"#6c5ce7",collapsed:false,rows:[
-      {...mk({task:"BitLocker Deployment",owner:"Alex M.",status:"In Progress",priority:"High",weeklyUpdate:"GPO testing complete – 3 departments remaining for Phase 2"}),timeline:"Firm Date",customer:"Infrastructure",team:"Alpha",projectProgress:70,linkedBoardId:"b_bitlocker"},
-      {...mk({task:"Network Refresh Q1",owner:"Tom W.",status:"Working on it",priority:"High",weeklyUpdate:"Floor 1 switches replaced, AP install in progress"}),timeline:"Soft Date",customer:"Infrastructure",team:"Beta",projectProgress:35,linkedBoardId:"b_network"},
-      {...mk({task:"Windows 11 Roll-out",owner:"Sarah K.",status:"Not Started",priority:"Medium"}),timeline:"Soft Date",customer:"Infrastructure",team:"Gamma",projectProgress:0},
-      {...mk({task:"Vulnerability Remediation",owner:"Alex M.",status:"Stuck",priority:"Critical",weeklyUpdate:"CVE-2026-0891 blocked – vendor patch pending"}),timeline:"Firm Date",customer:"Engineering",team:"Alpha",projectProgress:25,linkedBoardId:"b_vuln"},
+      {...mk({task:"M365 Tenant Migration",owner:"Alex M.",status:"In Progress",priority:"Critical",weeklyUpdate:"50 mailboxes migrated this week, 200 remaining. MX cutover scheduled Friday."}),timeline:"Firm Date",customer:"Infrastructure",team:"Alpha",projectProgress:55},
+      {...mk({task:"Zero Trust Network Rollout",owner:"Sarah K.",status:"Working on it",priority:"High",weeklyUpdate:"Conditional access policies deployed to pilot group. MFA enforcement next week."}),timeline:"Firm Date",customer:"Engineering",team:"Beta",projectProgress:30},
+      {...mk({task:"SCCM to Intune Migration",owner:"Tom W.",status:"In Progress",priority:"High",weeklyUpdate:"App packaging complete for 80% of apps. Co-management enabled."}),timeline:"Soft Date",customer:"Infrastructure",team:"Gamma",projectProgress:40},
+      {...mk({task:"SOC Monitoring Platform",owner:"James L.",status:"Not Started",priority:"Medium",weeklyUpdate:""}),timeline:"Soft Date",customer:"Engineering",team:"Delta",projectProgress:0},
+      {...mk({task:"DR Site Failover Testing",owner:"Chris D.",status:"Stuck",priority:"Critical",weeklyUpdate:"WAN circuit at DR site failed vendor SLA — escalated to account team"}),timeline:"Firm Date",customer:"Infrastructure",team:"Alpha",projectProgress:15},
     ]},
   ]},
   /* TASK BOARDS */
-  {id:"b_active",name:"Active Projects",desc:"Master tracker for all active IT initiatives",cat:"ACTIVE",wsId:"ws_main",icon:"📋",hist:[],columns:cloneCols(DCOLS),groups:[
-    {id:"g_wu_a",name:"Weekly Updates",color:"#ff642e",collapsed:false,rows:[mk({task:"Project Alpha Status",owner:"Alex M.",weeklyStatus:"On track – deployment scheduled for next Friday",status:"In Progress",priority:"High",tags:["Feature"]}),mk({task:"Infrastructure Review",owner:"Tom W.",weeklyStatus:"Delayed – waiting on vendor quote for switches",status:"Working on it",priority:"Medium",tags:["Infra"]})]},
-    {id:"g_cs",name:"Current Sprint",color:"#579bfc",collapsed:false,rows:[
-      mk({task:"Server migration – DC2 to Azure",owner:"Tom W.",status:"Working on it",priority:"High",tlStart:"2026-03-05",tlEnd:"2026-03-12",tags:["Infra","Migration"],updates:[mkU("Kicked off migration plan","Tom W."),mkU("50% of VMs migrated","Tom W."),mkU("DNS cutover pending approval","Alex M.")]}),
-      mk({task:"Network audit – floor 3 switches",owner:"Alex M.",status:"Stuck",priority:"Critical",tlStart:"2026-03-01",tlEnd:"2026-03-03",tags:["Infra","Urgent"],updates:[mkU("Blocked – vendor hasn't delivered replacement switches","Alex M.")]}),
-      mk({task:"SSO integration for Salesforce",owner:"Sarah K.",status:"In Progress",priority:"High",tlStart:"2026-03-08",tlEnd:"2026-03-20",tags:["Security","Feature"],updates:[mkU("SAML config complete, testing with pilot group","Sarah K.")]}),
-      mk({task:"Patch Tuesday rollout",owner:"Chris D.",status:"Done",priority:"Medium",tlStart:"2026-03-10",tlEnd:"2026-03-11",tags:["Security"],updates:[mkU("All endpoints patched, 3 exceptions documented","Chris D.")]}),
+  {id:"b_m365",name:"M365 Tenant Migration",desc:"Full Microsoft 365 tenant migration — mail, Teams, SharePoint, OneDrive",cat:"ACTIVE",wsId:"ws_it",icon:"📧",isMain:false,linkedMainBoardId:"b_portfolio",linkedMainItemName:"M365 Tenant Migration",owner:"u_admin",shared:[{userId:"u_2",access:"write"},{userId:"u_3",access:"read"}],hist:[],columns:cloneCols(DCOLS),groups:[
+    {id:"g_m1",name:"Pre-Migration",color:"#a25ddc",collapsed:false,rows:[
+      mk({task:"Tenant-to-tenant trust config",owner:"Alex M.",status:"Done",priority:"Critical",tlStart:"2026-02-01",tlEnd:"2026-02-05",tags:["Infra"],updates:[mkU("Azure AD B2B trust established","Alex M."),mkU("Test mailbox migration successful","Sarah K.")]}),
+      mk({task:"DNS pre-staging (TXT records)",owner:"Tom W.",status:"Done",priority:"High",tlStart:"2026-02-06",tlEnd:"2026-02-07",tags:["Infra"]}),
+      mk({task:"License reconciliation audit",owner:"Nina R.",status:"Done",priority:"Medium",tlStart:"2026-02-03",tlEnd:"2026-02-10",tags:["Docs"]}),
+      mk({task:"User communication plan",owner:"Pat G.",status:"Done",priority:"Medium",tlStart:"2026-02-08",tlEnd:"2026-02-12",tags:["Docs"],updates:[mkU("Email templates approved by comms team","Pat G.")]}),
+    ]},
+    {id:"g_m2",name:"Migration Waves",color:"#579bfc",collapsed:false,rows:[
+      mk({task:"Wave 1 — IT Dept (50 users)",owner:"Alex M.",status:"Done",priority:"High",tlStart:"2026-02-17",tlEnd:"2026-02-19",tags:["Migration"],subitems:[mkSub({task:"Mailbox migration",status:"Done",owner:"Alex M."}),mkSub({task:"OneDrive sync",status:"Done",owner:"Tom W."}),mkSub({task:"Teams channels",status:"Done",owner:"Sarah K."})]}),
+      mk({task:"Wave 2 — Finance & HR (80 users)",owner:"Sarah K.",status:"Done",priority:"High",tlStart:"2026-02-24",tlEnd:"2026-02-26",tags:["Migration"]}),
+      mk({task:"Wave 3 — Sales & Marketing (120 users)",owner:"Alex M.",status:"In Progress",priority:"High",tlStart:"2026-03-03",tlEnd:"2026-03-07",tags:["Migration"],updates:[mkU("50 mailboxes complete, 70 remaining","Alex M."),mkU("3 shared mailboxes need manual fix","Tom W.")]}),
+      mk({task:"Wave 4 — All remaining (200 users)",owner:"Tom W.",status:"Not Started",priority:"High",tlStart:"2026-03-10",tlEnd:"2026-03-14",tags:["Migration"]}),
+      mk({task:"MX record cutover",owner:"Alex M.",status:"Not Started",priority:"Critical",tlStart:"2026-03-15",tlEnd:"2026-03-15",tags:["Infra","Urgent"]}),
+    ]},
+    {id:"g_m3",name:"Post-Migration",color:"#00c875",collapsed:true,rows:[
+      mk({task:"Decommission old Exchange server",owner:"Tom W.",status:"Not Started",priority:"Medium",tlStart:"2026-03-17",tlEnd:"2026-03-21"}),
+      mk({task:"Update MFA policies for new tenant",owner:"Sarah K.",status:"Not Started",priority:"High",tlStart:"2026-03-16",tlEnd:"2026-03-18",tags:["Security"]}),
+      mk({task:"User training sessions (Teams)",owner:"Pat G.",status:"Not Started",priority:"Medium",tlStart:"2026-03-10",tlEnd:"2026-03-14"}),
     ]},
   ]},
-  {id:"b_bitlocker",name:"BitLocker Deployment",desc:"Enterprise-wide BitLocker encryption rollout – 4 phases",cat:"ACTIVE",wsId:"ws_it",icon:"⚡",isMain:false,linkedMainBoardId:"b_portfolio",linkedMainItemName:"BitLocker Deployment",linkedTo:"b_active",hist:[],columns:cloneCols(DCOLS),groups:[
-    {id:"g_mn",name:"Meeting Notes",color:"#e2445c",collapsed:true,rows:[mk({task:"Kickoff Meeting Notes",owner:"Alex M.",updates:[mkU("Discussed scope: 2,400 endpoints across 6 departments","Alex M."),mkU("Timeline approved by VP – 8 week rollout","Sarah K.")]})]},
-    {id:"g_wu",name:"Weekly Updates",color:"#a25ddc",collapsed:false,rows:[mk({task:"Week 8 Status",owner:"Sarah K.",weeklyStatus:"GPO testing complete – 3 departments remaining for Phase 2"}),mk({task:"Exceptions Tracking",owner:"James L.",weeklyStatus:"14 machines with TPM issues – hardware refresh scheduled"})]},
-    {id:"g_pl",name:"Planning & Deployment",color:"#00c875",collapsed:false,rows:[
-      mk({task:"Deploy to Test users (IT dept)",owner:"Alex M.",status:"Done",priority:"High",tlStart:"2026-01-20",tlEnd:"2026-01-24",tags:["Migration"],updates:[mkU("50 test machines encrypted","Alex M."),mkU("QA passed – no issues","Sarah K."),mkU("Sign-off from IT Director","Pat G.")],subitems:[mkSub({task:"Configure GPO policies",status:"Done",owner:"Alex M."}),mkSub({task:"Test recovery key escrow to AD",status:"Done",owner:"Sarah K."}),mkSub({task:"Document rollback procedure",status:"Done",owner:"James L."})]}),
-      mk({task:"Deploy to Infrastructure group",owner:"Sarah K.",status:"Done",priority:"High",tlStart:"2026-01-27",tlEnd:"2026-01-31",tags:["Migration"]}),
-      mk({task:"Deploy to GBS",owner:"James L.",status:"Done",priority:"Medium",tlStart:"2026-02-03",tlEnd:"2026-02-07"}),
-      mk({task:"BitLocker compliance testing",owner:"Alex M.",status:"Done",priority:"Critical",tlStart:"2026-01-19",tlEnd:"2026-01-28",tags:["Security"],updates:[mkU("All 50 test machines verified encrypted","Alex M."),mkU("Edge case: Surface Go needs firmware update first","Tom W.")]}),
-      mk({task:"Change Ticket #CHG-4891",owner:"Nina R.",status:"Done",priority:"Medium",tlStart:"2026-02-10",tlEnd:"2026-02-11"}),
-      mk({task:"Phase 1 – Finance & HR (400 endpoints)",owner:"Sarah K.",status:"Done",priority:"High",tlStart:"2026-02-16",tlEnd:"2026-02-17",tags:["Migration"]}),
-      mk({task:"Phase 2 – Sales & Marketing (600 endpoints)",owner:"Alex M.",status:"Done",priority:"High",tlStart:"2026-02-22",tlEnd:"2026-02-23",tags:["Migration"]}),
-      mk({task:"Phase 2 continued – Exec laptops",owner:"James L.",status:"Future steps",priority:"High",tlStart:"2026-02-25",tlEnd:"2026-02-26",tags:["Security"]}),
-      mk({task:"Phase 3 – All remaining users",owner:"Sarah K.",status:"Future steps",priority:"Medium",tlStart:"2026-02-27",tlEnd:"2026-03-07",tags:["Migration"]}),
-      mk({task:"Final compliance report to VP",owner:"Pat G.",status:"Not Started",priority:"Critical",tlStart:"2026-03-08",tlEnd:"2026-03-10",tags:["Docs"]}),
+  {id:"b_zerotrust",name:"Zero Trust Network",desc:"Zero Trust architecture rollout — Conditional Access, MFA, device compliance",cat:"ACTIVE",wsId:"ws_sec",icon:"🔐",isMain:false,linkedMainBoardId:"b_portfolio",linkedMainItemName:"Zero Trust Network Rollout",owner:"u_admin",shared:[],hist:[],columns:cloneCols(DCOLS),groups:[
+    {id:"g_z1",name:"Identity & Access",color:"#e2445c",collapsed:false,rows:[
+      mk({task:"Enforce MFA for all users",owner:"Sarah K.",status:"Done",priority:"Critical",tlStart:"2026-02-01",tlEnd:"2026-02-14",tags:["Security"],updates:[mkU("MFA enforced for admins and VIPs","Sarah K."),mkU("Full rollout complete — 99.2% adoption","Sarah K.")]}),
+      mk({task:"Conditional Access — require compliant device",owner:"Sarah K.",status:"Working on it",priority:"High",tlStart:"2026-02-17",tlEnd:"2026-03-07",tags:["Security"],updates:[mkU("Pilot group of 50 users live, monitoring exceptions","Sarah K.")]}),
+      mk({task:"Disable legacy authentication protocols",owner:"James L.",status:"Not Started",priority:"High",tlStart:"2026-03-10",tlEnd:"2026-03-14",tags:["Security"]}),
+    ]},
+    {id:"g_z2",name:"Network Segmentation",color:"#579bfc",collapsed:false,rows:[
+      mk({task:"VLAN restructure — server segment",owner:"Tom W.",status:"Working on it",priority:"High",tlStart:"2026-03-01",tlEnd:"2026-03-10",tags:["Infra"]}),
+      mk({task:"Micro-segmentation for PCI scope",owner:"Chris D.",status:"Not Started",priority:"Critical",tlStart:"2026-03-12",tlEnd:"2026-03-21",tags:["Security","Infra"]}),
     ]},
   ]},
-  {id:"b_network",name:"Network Refresh Q1",desc:"Switch and AP replacement across 3 floors",cat:"IN PROGRESS",wsId:"ws_it",icon:"🌐",isMain:false,linkedMainBoardId:"b_portfolio",linkedMainItemName:"Network Refresh Q1",hist:[],columns:cloneCols(DCOLS),groups:[
-    {id:"g_n1",name:"Phase 1 – Floor 1",color:"#579bfc",collapsed:false,rows:[
-      mk({task:"Replace core switch – MDF",owner:"Tom W.",status:"Done",priority:"Critical",tlStart:"2026-02-01",tlEnd:"2026-02-03",tags:["Infra"]}),
-      mk({task:"Replace 12 access points",owner:"Tom W.",status:"Working on it",priority:"High",tlStart:"2026-02-04",tlEnd:"2026-02-10",tags:["Infra"]}),
-      mk({task:"Cable testing & certification",owner:"Chris D.",status:"Not Started",priority:"Medium",tlStart:"2026-02-11",tlEnd:"2026-02-14"}),
+  {id:"b_intune",name:"SCCM to Intune Migration",desc:"Migrate endpoint management from SCCM to Microsoft Intune",cat:"IN PROGRESS",wsId:"ws_it",icon:"📱",isMain:false,linkedMainBoardId:"b_portfolio",linkedMainItemName:"SCCM to Intune Migration",owner:"u_admin",shared:[{userId:"u_4",access:"write"}],hist:[],columns:cloneCols(DCOLS),groups:[
+    {id:"g_i1",name:"App Packaging",color:"#fdab3d",collapsed:false,rows:[
+      mk({task:"Package Chrome Enterprise (.intunewin)",owner:"Tom W.",status:"Done",priority:"Medium",tlStart:"2026-02-10",tlEnd:"2026-02-12",tags:["Feature"]}),
+      mk({task:"Package Adobe Acrobat DC",owner:"Tom W.",status:"Done",priority:"Medium",tlStart:"2026-02-12",tlEnd:"2026-02-14"}),
+      mk({task:"Package Zoom Workplace",owner:"Chris D.",status:"Done",priority:"Medium",tlStart:"2026-02-14",tlEnd:"2026-02-15"}),
+      mk({task:"Package internal LOB apps (5 remaining)",owner:"Tom W.",status:"In Progress",priority:"High",tlStart:"2026-02-17",tlEnd:"2026-03-07",tags:["Feature"],updates:[mkU("3 of 8 LOB apps packaged — SAP connector problematic","Tom W.")]}),
     ]},
-    {id:"g_n2",name:"Phase 2 – Floor 2 & 3",color:"#fdab3d",collapsed:true,rows:[
-      mk({task:"Procure switches (PO #8842)",owner:"Nina R.",status:"Working on it",priority:"High",tlStart:"2026-02-15",tlEnd:"2026-02-20"}),
-      mk({task:"Schedule maintenance window",owner:"Alex M.",status:"Not Started",priority:"Medium",tlStart:"2026-02-21",tlEnd:"2026-02-22"}),
+    {id:"g_i2",name:"Enrollment & Compliance",color:"#00c875",collapsed:false,rows:[
+      mk({task:"Enable co-management in SCCM",owner:"Alex M.",status:"Done",priority:"Critical",tlStart:"2026-02-03",tlEnd:"2026-02-05"}),
+      mk({task:"Compliance policies — BitLocker + AV",owner:"Sarah K.",status:"In Progress",priority:"High",tlStart:"2026-02-20",tlEnd:"2026-03-05",tags:["Security"]}),
+      mk({task:"Autopilot profile for new devices",owner:"Tom W.",status:"Not Started",priority:"Medium",tlStart:"2026-03-10",tlEnd:"2026-03-14"}),
     ]},
   ]},
-  {id:"b_old",name:"Legacy Server Decom",desc:"Decommission Windows Server 2012 R2 instances",cat:"COMPLETED",wsId:"ws_it",icon:"📦",isMain:false,hist:[],columns:cloneCols(DCOLS),groups:[
-    {id:"g_o1",name:"Completed",color:"#00c875",collapsed:false,rows:[mk({task:"Migrate file shares to SharePoint",owner:"James L.",status:"Done",priority:"High",tlStart:"2026-01-05",tlEnd:"2026-01-15"}),mk({task:"Decommission SRV-FS01",owner:"Tom W.",status:"Done",priority:"Medium",tlStart:"2026-01-16",tlEnd:"2026-01-17"}),mk({task:"Update CMDB records",owner:"Chris D.",status:"Done",tlStart:"2026-01-18",tlEnd:"2026-01-19"})]},
-  ]},
-  {id:"b_vuln",name:"Vulnerability Remediation",desc:"Q1 2026 vulnerability scan findings",cat:"ACTIVE",wsId:"ws_sec",icon:"🛡️",isMain:false,linkedMainBoardId:"b_portfolio",linkedMainItemName:"Vulnerability Remediation",hist:[],columns:cloneCols(DCOLS),groups:[
-    {id:"g_v1",name:"Critical & High",color:"#e2445c",collapsed:false,rows:[
-      mk({task:"CVE-2026-1234 – Exchange RCE",owner:"Alex M.",status:"In Progress",priority:"Critical",tlStart:"2026-03-01",tlEnd:"2026-03-05",tags:["Security","Urgent"]}),
-      mk({task:"CVE-2026-0891 – SQL injection in portal",owner:"Sarah K.",status:"Stuck",priority:"Critical",tlStart:"2026-02-28",tlEnd:"2026-03-02",tags:["Security","Urgent"],updates:[mkU("Vendor patch not yet available, WAF rule applied as mitigation","Sarah K.")]}),
-      mk({task:"OpenSSL update across Linux fleet",owner:"Tom W.",status:"Working on it",priority:"High",tlStart:"2026-03-03",tlEnd:"2026-03-07",tags:["Security"]}),
+  {id:"b_dr",name:"DR Failover Testing",desc:"Annual disaster recovery validation — Azure Site Recovery",cat:"STALLED",wsId:"ws_infra",icon:"🔥",isMain:false,linkedMainBoardId:"b_portfolio",linkedMainItemName:"DR Site Failover Testing",owner:"u_admin",shared:[],hist:[],columns:cloneCols(DCOLS),groups:[
+    {id:"g_d1",name:"Preparation",color:"#e2445c",collapsed:false,rows:[
+      mk({task:"Validate ASR replication health",owner:"Chris D.",status:"Done",priority:"Critical",tlStart:"2026-02-15",tlEnd:"2026-02-18",tags:["Infra"]}),
+      mk({task:"Update DR runbook",owner:"James L.",status:"Done",priority:"High",tlStart:"2026-02-18",tlEnd:"2026-02-21",tags:["Docs"]}),
+      mk({task:"WAN circuit validation at DR site",owner:"Tom W.",status:"Stuck",priority:"Critical",tlStart:"2026-02-22",tlEnd:"2026-02-25",tags:["Infra","Urgent"],updates:[mkU("Circuit showing 40% packet loss — vendor escalated","Tom W."),mkU("Vendor ETA: 5 business days for tech dispatch","Chris D.")]}),
     ]},
-    {id:"g_v2",name:"Medium & Low",color:"#fdab3d",collapsed:true,rows:[
-      mk({task:"Update Java runtime on dev servers",owner:"Chris D.",status:"Not Started",priority:"Medium",tags:["Security"]}),
-      mk({task:"Disable TLS 1.0 on legacy apps",owner:"James L.",status:"Not Started",priority:"Low",tags:["Security"]}),
+    {id:"g_d2",name:"Failover Execution",color:"#579bfc",collapsed:true,rows:[
+      mk({task:"Failover — Domain Controllers",owner:"Alex M.",status:"Not Started",priority:"Critical",tags:["Infra"]}),
+      mk({task:"Failover — SQL cluster",owner:"James L.",status:"Not Started",priority:"Critical",tags:["Infra"]}),
+      mk({task:"Failover — Web apps tier",owner:"Chris D.",status:"Not Started",priority:"High",tags:["Infra"]}),
+      mk({task:"DNS failover test",owner:"Tom W.",status:"Not Started",priority:"High",tags:["Infra"]}),
+      mk({task:"Executive sign-off & compliance report",owner:"Pat G.",status:"Not Started",priority:"Medium",tags:["Docs"]}),
+    ]},
+  ]},
+  {id:"b_helpdesk",name:"Helpdesk Q1 Sprint",desc:"IT helpdesk tickets and recurring ops tasks",cat:"ACTIVE",wsId:"ws_it",icon:"🎫",isMain:false,owner:"u_admin",shared:[{userId:"u_2",access:"write"},{userId:"u_3",access:"write"},{userId:"u_6",access:"write"}],hist:[],columns:cloneCols(DCOLS),groups:[
+    {id:"g_h1",name:"Open Tickets",color:"#e2445c",collapsed:false,rows:[
+      mk({task:"TKT-4201 — VPN drops on macOS Sonoma",owner:"Chris D.",status:"Working on it",priority:"High",tags:["Bug"],updates:[mkU("Reproduced on 3 machines — GlobalProtect version issue","Chris D.")]}),
+      mk({task:"TKT-4215 — Shared printer not mapping via GPO",owner:"Nina R.",status:"In Progress",priority:"Medium",tags:["Bug"]}),
+      mk({task:"TKT-4220 — New hire onboarding — Priya S.",owner:"Pat G.",status:"In Progress",priority:"High",tags:["Feature"],subitems:[mkSub({task:"AD account creation",status:"Done",owner:"Pat G."}),mkSub({task:"Laptop imaging",status:"In Progress",owner:"Chris D."}),mkSub({task:"M365 license assignment",status:"Not Started",owner:"Nina R."})]}),
+    ]},
+    {id:"g_h2",name:"Resolved This Week",color:"#00c875",collapsed:true,rows:[
+      mk({task:"TKT-4198 — Outlook search not indexing",owner:"Nina R.",status:"Done",priority:"Medium",completionDate:"2026-03-04",completionStatus:"Done On Time"}),
+      mk({task:"TKT-4199 — Conference room display firmware",owner:"Chris D.",status:"Done",priority:"Low",completionDate:"2026-03-03",completionStatus:"Done On Time"}),
     ]},
   ]},
 ];
 
 const DEF_AUTOS=[
   {id:"a1",enabled:true,trigger:"status_done",title:"Auto-complete date",label:"When Status → Done, set Completion Date to today",cat:"Status",popular:true},
-  {id:"a2",enabled:false,trigger:"update_created",title:"Weekly update sync",label:"When update is created, append to Weekly Update",cat:"Status",popular:true},
+  {id:"a2",enabled:true,trigger:"status_done_move",title:"Move done items",label:"When Status → Done, move item to last group",cat:"Status",popular:true},
+  {id:"a3",enabled:false,trigger:"date_passed",title:"Overdue → Stuck",label:"When end date passes and not Done, set Status to Stuck",cat:"Date",popular:true},
 ];
 const AUTO_RECIPES=[
-  {id:"r1",cat:"Status",title:"When status changes",desc:"When status changes to something, notify someone",popular:true,trigger:"status_changes"},
-  {id:"r2",cat:"Status",title:"Move to group on status",desc:"When status changes to Done, move item to group",popular:true,trigger:"status_done_move"},
-  {id:"r3",cat:"Date",title:"Deadline reminder",desc:"3 days before timeline, notify owner",popular:true,trigger:"deadline_reminder"},
-  {id:"r4",cat:"Date",title:"Due date passed",desc:"When timeline passes, change status to Stuck",popular:false,trigger:"date_passed"},
-  {id:"r5",cat:"Assignment",title:"Notify on assignment",desc:"When owner is set, notify that person",popular:true,trigger:"owner_set"},
-  {id:"r6",cat:"Progress",title:"Auto progress update",desc:"When all subitems are done, set status to Done",popular:false,trigger:"subitems_done"},
-  {id:"r7",cat:"Recurring",title:"Create recurring item",desc:"Every week, create a new item in group",popular:true,trigger:"recurring"},
-  {id:"r8",cat:"Integration",title:"Slack notification",desc:"When status changes, post message to Slack channel",popular:true,trigger:"slack"},
-  {id:"r9",cat:"Integration",title:"Email digest",desc:"Every Monday, send summary email to team",popular:false,trigger:"email_digest"},
-  {id:"r10",cat:"Status",title:"Set completion date",desc:"When status → Done, set completion date to today",popular:true,trigger:"status_done"},
-  {id:"r11",cat:"Progress",title:"Sync to main board",desc:"When status changes, update linked main board",popular:true,trigger:"sync_main"},
-  {id:"r12",cat:"Status",title:"Set priority on create",desc:"When item is created, set priority to Medium",popular:false,trigger:"item_created_priority"},
+  {id:"r1",cat:"Status",title:"When status changes to Done",desc:"Set completion date to today automatically",popular:true,trigger:"status_done"},
+  {id:"r2",cat:"Status",title:"Move done items to group",desc:"When status → Done, move item to last group in board",popular:true,trigger:"status_done_move"},
+  {id:"r3",cat:"Date",title:"Overdue → Stuck",desc:"When end date passes, change status to Stuck automatically",popular:true,trigger:"date_passed"},
+  {id:"r4",cat:"Date",title:"Deadline reminder",desc:"When 3 days before due date, raise priority to High",popular:true,trigger:"deadline_reminder"},
+  {id:"r5",cat:"Assignment",title:"Notify on assignment",desc:"When person is assigned, add an update noting the assignment",popular:true,trigger:"owner_set"},
+  {id:"r6",cat:"Progress",title:"All subitems done → Done",desc:"When all subitems are Done, set parent status to Done",popular:true,trigger:"subitems_done"},
+  {id:"r7",cat:"Status",title:"Auto-set priority on create",desc:"When new item created, set priority to Medium",popular:false,trigger:"item_created_priority"},
+  {id:"r8",cat:"Status",title:"Stuck → alert + raise priority",desc:"When status changes to Stuck, add alert and raise priority if Low",popular:true,trigger:"status_stuck_notify"},
+  {id:"r9",cat:"Date",title:"Set start date on progress",desc:"When status → In Progress, set start date to today if empty",popular:false,trigger:"status_progress_date"},
+  {id:"r10",cat:"Progress",title:"Sync to portfolio",desc:"When status changes, update linked portfolio board (always on)",popular:true,trigger:"sync_main"},
+  {id:"r11",cat:"Recurring",title:"Create weekly standup item",desc:"Creates a 'Weekly Standup' item in first group when enabled",popular:true,trigger:"recurring_weekly"},
+  {id:"r12",cat:"Integration",title:"Log completion for digest",desc:"When status → Done, log completion timestamp for email digest",popular:false,trigger:"email_done"},
+  {id:"r13",cat:"Status",title:"Not Started → In Progress on edit",desc:"When task name is edited and status is Not Started, change to In Progress",popular:false,trigger:"edit_start"},
+  {id:"r14",cat:"Assignment",title:"Auto-assign to creator",desc:"When new item created, assign to current user",popular:false,trigger:"item_created_assign"},
+  {id:"r15",cat:"Date",title:"Set due date on create (+7 days)",desc:"When new item created, set end date to 7 days from now",popular:false,trigger:"item_created_duedate"},
 ];
 
 const NOTIFS=[
-  {id:"n1",text:"Network audit is overdue by 2 days",type:"warning",time:"2 hours ago",read:false},
-  {id:"n2",text:"Sarah K. posted an update on BitLocker Testing",type:"update",time:"3 hours ago",read:false},
-  {id:"n3",text:"Phase 1 marked as Done by Sarah K.",type:"success",time:"Yesterday",read:true},
-  {id:"n4",text:"CVE-2026-0891 is Stuck – vendor patch pending",type:"warning",time:"Yesterday",read:true},
-  {id:"n5",text:"Patch Tuesday rollout completed",type:"success",time:"2 days ago",read:true},
+  {id:"n1",text:"DR Site WAN circuit is down — vendor escalated",type:"warning",time:"1 hour ago",read:false},
+  {id:"n2",text:"Alex M. completed Wave 2 mailbox migration",type:"success",time:"3 hours ago",read:false},
+  {id:"n3",text:"MFA enforcement hit 99.2% adoption",type:"success",time:"Yesterday",read:false},
+  {id:"n4",text:"TKT-4201 VPN issue reproduced — GlobalProtect update needed",type:"update",time:"Yesterday",read:true},
+  {id:"n5",text:"LOB app packaging delayed — SAP connector issue",type:"warning",time:"2 days ago",read:true},
 ];
 
 /* Every return of JSX MUST use parentheses: return(...) not return <...
@@ -403,7 +443,7 @@ const Cell=memo(({col,row,onChange,onOpenUpdates,onOpenDetail,people,setPeople,s
     const syncBadge=col.id==="task"?<span style={{marginLeft:4,fontSize:9,color:"#a25ddc",background:"#f0eeff",padding:"1px 5px",borderRadius:3,fontWeight:600,flexShrink:0}}>⇄ synced</span>:null;
     if(col.type==="status"){const bg=SC[val]||"#c4c4c4";return(<div style={{display:"flex",alignItems:"center",gap:4,width:"100%"}}><div style={{padding:"4px 6px",borderRadius:4,background:bg,color:"#fff",textAlign:"center",fontSize:12,fontWeight:600,flex:1,opacity:.8}}>{val||"—"} 🔒</div></div>);}
     if(col.type==="priority"){const bg=PC[val]||"#c4c4c4";return(<div style={{padding:"4px 6px",borderRadius:4,background:val&&val!=="No Priority"?bg:"transparent",color:val&&val!=="No Priority"?"#fff":"#aaa",textAlign:"center",fontSize:12,fontWeight:500,opacity:.8}}>{val&&val!=="No Priority"?val:"—"} 🔒</div>);}
-    if(col.type==="person"){const ini=val?val.split(" ").map(n=>n[0]).join(""):"";const ci=people.indexOf(val);return(<div style={{display:"flex",alignItems:"center",justifyContent:"center",width:"100%",opacity:.8}}>{val?<span title={val+" (synced)"} style={{width:28,height:28,borderRadius:"50%",background:CL[Math.abs(ci)%CL.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>{ini}</span>:<span style={{color:"#ccc",fontSize:12}}>—</span>}</div>);}
+    if(col.type==="person"){const ini=Initials(val);const ci=people.indexOf(val);return(<div style={{display:"flex",alignItems:"center",justifyContent:"center",width:"100%",opacity:.8}}>{val?<span title={val+" (synced)"} style={{width:28,height:28,borderRadius:"50%",background:CL[Math.abs(ci)%CL.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700}}>{ini}</span>:<span style={{color:"#ccc",fontSize:12}}>—</span>}</div>);}
     if(col.type==="timeline") return(<div style={{padding:"4px 6px",fontSize:12,color:"#888",opacity:.8}}>{fmtTL(row.tlStart,row.tlEnd)||"—"} 🔒</div>);
     return(<div style={{display:"flex",alignItems:"center",width:"100%",padding:"6px 8px",fontSize:13,color:"#888",opacity:.8}}><span style={{flex:1}}>{String(val||"—")}</span>{syncBadge}<span style={{fontSize:9,color:"#ccc",marginLeft:2}}>🔒</span></div>);
   }
@@ -414,7 +454,7 @@ const Cell=memo(({col,row,onChange,onOpenUpdates,onOpenDetail,people,setPeople,s
   if(col.type==="updates"){const ct=Array.isArray(val)?val.length:0; return(<div onClick={onOpenUpdates} style={{display:"flex",alignItems:"center",justifyContent:"center",width:"100%",cursor:"pointer"}}>{ct>0?<span style={{background:"#0073ea",color:"#fff",borderRadius:12,padding:"2px 8px",fontSize:11,fontWeight:700}}>💬{ct}</span>:<span style={{color:"#ccc",fontSize:14}}>💬</span>}</div>);}
   if(col.type==="status") return(<StatusCell val={val} onChange={onChange} statuses={statuses} setStatuses={setStatuses}/>);
   if(col.type==="priority"){const np=val==="No Priority";const bg=PC[val]||"#c4c4c4"; return([<div key="p" ref={ref} onClick={()=>setOpen(!open)} style={{padding:"4px 6px",borderRadius:4,background:np?"transparent":bg,color:np?"#888":"#fff",textAlign:"center",cursor:"pointer",fontSize:12,fontWeight:500,width:"100%",border:np?"1px dashed #ccc":"none"}}>{np?"":val}</div>,<EDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} items={priorities} cmap={PC} label="Priority" onSelect={v=>onChange(col.id,v)} oc={setPriorities}/>]);}
-  if(col.type==="person"){const ini=val?val.split(" ").map(n=>n[0]).join(""):"";const ci=people.indexOf(val); return([<div key="p" ref={ref} onClick={()=>setOpen(!open)} style={{cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",width:"100%"}}>{val?<span title={val} style={{width:28,height:28,borderRadius:"50%",background:CL[Math.abs(ci)%CL.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>{ini}</span>:<span style={{width:28,height:28,borderRadius:"50%",border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#ccc"}}>+</span>}</div>,<EDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} items={people} label="Person" onSelect={v=>onChange(col.id,v)} oc={setPeople}/>]);}
+  if(col.type==="person"){const ini=Initials(val);const ci=people.indexOf(val); return([<div key="p" ref={ref} onClick={()=>setOpen(!open)} style={{cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",width:"100%"}}>{val?<span title={val} style={{width:28,height:28,borderRadius:"50%",background:CL[Math.abs(ci)%CL.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:700,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>{ini}</span>:<span style={{width:28,height:28,borderRadius:"50%",border:"1.5px dashed #ccc",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,color:"#ccc"}}>+</span>}</div>,<EDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} items={people} label="Person" onSelect={v=>onChange(col.id,v)} oc={setPeople}/>]);}
   if(col.type==="tags"){const tv=Array.isArray(val)?val:[];return([<div key="t" ref={ref} onClick={()=>setOpen(!open)} style={{cursor:"pointer",fontSize:12,color:"#999",padding:"4px 6px",width:"100%"}}>{tv.length>0?tv.map(t=><span key={t} style={{background:"#e6f0ff",color:"#0073ea",padding:"1px 5px",borderRadius:3,marginRight:2,fontSize:11}}>{t}</span>):"+"}</div>,<TDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} allTags={allTags} sel={tv} onToggle={t=>{onChange(col.id,tv.includes(t)?tv.filter(x=>x!==t):[...tv,t]);}} oc={setAllTags}/>]);}
   if(col.type==="dropdown"){
     const labels=col.labels||["Option 1","Option 2","Option 3"];const lc={};labels.forEach((l,i)=>{lc[l]=DD_COLORS[i%DD_COLORS.length];});
@@ -974,7 +1014,7 @@ const ConfirmModal=({message,onConfirm,onCancel})=>(<div style={{position:"fixed
   </div>
 </div>);
 
-const TemplateModal=({onSelect,onClose,boards,mainBoards})=>{
+const TemplateModal=memo(({onSelect,onClose,boards,mainBoards})=>{
   const [mode,setMode]=useState("template");const [name,setName]=useState("");const [linkTo,setLinkTo]=useState("");const [linkItem,setLinkItem]=useState("");const [folder,setFolder]=useState("ACTIVE");const [icon,setIcon]=useState("📋");const [iconOpen,setIconOpen]=useState(false);
   const mbs=(mainBoards||boards.filter(b=>b.isMain));
   const items=linkTo?((mbs.find(b=>b.id===linkTo)||{groups:[]}).groups.flatMap(g=>g.rows)):[];
@@ -1019,7 +1059,7 @@ const TemplateModal=({onSelect,onClose,boards,mainBoards})=>{
     <button onClick={()=>{if(name.trim()){onSelect({name:name.trim(),icon:icon,groups:[{name:"Group 1",color:"#579bfc"}],linked:true,linkTo:linkTo||null,linkItem:linkItem||null,folder});}}} style={{padding:"8px 20px",border:"none",borderRadius:6,background:"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>Create</button></div>
   </div>}
 </div></div>);
-};
+});
 
 const SelectionBar=({count,groups,statuses,priorities,onDuplicate,onDelete,onMove,onSetStatus,onSetPriority,onDeselect})=>{
   const [moveOpen,setMoveOpen]=useState(false);const [statusOpen,setStatusOpen]=useState(false);const [prioOpen,setPrioOpen]=useState(false);
@@ -1326,6 +1366,96 @@ const AuthScreen=({onAuth})=>{
   </div>);
 };
 
+/* ─── SHARE / PERMISSIONS PANEL ─── */
+const WsSharePanel=({workspace,teamMembers,onUpdate,onClose})=>{
+  const [addEmail,setAddEmail]=useState("");const [addAccess,setAddAccess]=useState("write");
+  const shared=workspace?.shared||[];const owner=workspace?.owner||"u_admin";
+  const ownerMember=teamMembers.find(m=>m.id===owner);
+  const addShare=()=>{if(!addEmail.trim())return;const m=teamMembers.find(t=>t.name.toLowerCase().includes(addEmail.toLowerCase())||t.email?.toLowerCase().includes(addEmail.toLowerCase()));if(!m)return;if(shared.find(s=>s.userId===m.id))return;onUpdate([...shared,{userId:m.id,access:addAccess}]);setAddEmail("");};
+  const removeShare=(userId)=>onUpdate(shared.filter(s=>s.userId!==userId));
+  const changeAccess=(userId,access)=>onUpdate(shared.map(s=>s.userId!==userId?s:{...s,access}));
+  return(<SidePanel title={"🏢 Workspace: "+workspace?.name} sub="Manage workspace access" onClose={onClose} width={420}>
+    <div style={{padding:"16px 20px",borderBottom:"1px solid #f0f0f0"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <input value={addEmail} onChange={e=>setAddEmail(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addShare();}} placeholder="Search by name or email..." style={{flex:1,padding:"8px 12px",border:"1px solid #e0e0e0",borderRadius:6,fontSize:13,outline:"none"}}/>
+        <select value={addAccess} onChange={e=>setAddAccess(e.target.value)} style={{padding:"8px 10px",border:"1px solid #e0e0e0",borderRadius:6,fontSize:12,outline:"none"}}>
+          <option value="write">Can edit</option>
+          <option value="read">View only</option>
+        </select>
+        <button onClick={addShare} style={{padding:"8px 14px",border:"none",borderRadius:6,background:"#6c5ce7",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>Add</button>
+      </div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:0}}>
+      <div style={{padding:"12px 20px",fontSize:11,fontWeight:700,color:"#999",textTransform:"uppercase",letterSpacing:.5}}>Owner</div>
+      <div style={{padding:"8px 20px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f5f5f5"}}>
+        <div style={{width:32,height:32,borderRadius:"50%",background:ownerMember?.color||"#6c5ce7",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{Initials(ownerMember?.name||"Admin")}</div>
+        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{ownerMember?.name||"Admin"}</div><div style={{fontSize:11,color:"#999"}}>{ownerMember?.email||""}</div></div>
+        <span style={{fontSize:11,color:"#00c875",fontWeight:700,background:"#e8f8ef",borderRadius:10,padding:"2px 10px"}}>Owner</span>
+      </div>
+      {shared.length>0&&<div style={{padding:"12px 20px 4px",fontSize:11,fontWeight:700,color:"#999",textTransform:"uppercase",letterSpacing:.5}}>Members</div>}
+      {shared.map(s=>{const m=teamMembers.find(t=>t.id===s.userId);if(!m)return null;return(<div key={s.userId} style={{padding:"10px 20px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f5f5f5"}}>
+        <div style={{width:32,height:32,borderRadius:"50%",background:m.color||"#ccc",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{Initials(m.name)}</div>
+        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{m.name}</div><div style={{fontSize:11,color:"#999"}}>{m.email||""}</div></div>
+        <select value={s.access} onChange={e=>changeAccess(s.userId,e.target.value)} style={{padding:"4px 8px",border:"1px solid #e0e0e0",borderRadius:6,fontSize:11,outline:"none",color:s.access==="write"?"#0073ea":"#888",fontWeight:600}}>
+          <option value="write">Can edit</option>
+          <option value="read">View only</option>
+        </select>
+        <span onClick={()=>removeShare(s.userId)} style={{cursor:"pointer",color:"#ccc",fontSize:14}} onMouseEnter={e=>e.currentTarget.style.color="#e2445c"} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>✕</span>
+      </div>);})}
+      {shared.length===0&&<div style={{padding:"30px 20px",textAlign:"center",color:"#ccc",fontSize:13}}>No members added yet.</div>}
+    </div>
+    <div style={{padding:"12px 20px",borderTop:"1px solid #e6e9ef",background:"#f8f9fb",fontSize:11,color:"#888"}}>
+      Workspace access controls who can see boards in this workspace.<br/>
+      <b>Can edit</b> — create boards, edit all content<br/>
+      <b>View only</b> — browse boards, cannot change anything
+    </div>
+  </SidePanel>);
+};
+
+const SharePanel=({board,teamMembers,onUpdate,onClose})=>{
+  const [addEmail,setAddEmail]=useState("");const [addAccess,setAddAccess]=useState("write");
+  const shared=board?.shared||[];const owner=board?.owner||"u_admin";
+  const ownerMember=teamMembers.find(m=>m.id===owner);
+  const addShare=()=>{if(!addEmail.trim())return;const m=teamMembers.find(t=>t.name.toLowerCase().includes(addEmail.toLowerCase())||t.email?.toLowerCase().includes(addEmail.toLowerCase()));if(!m){return;}if(shared.find(s=>s.userId===m.id))return;onUpdate([...shared,{userId:m.id,access:addAccess}]);setAddEmail("");};
+  const removeShare=(userId)=>onUpdate(shared.filter(s=>s.userId!==userId));
+  const changeAccess=(userId,access)=>onUpdate(shared.map(s=>s.userId!==userId?s:{...s,access}));
+  return(<SidePanel title={"🔗 Share: "+board?.name} sub="Manage who can access this board" onClose={onClose} width={420}>
+    <div style={{padding:"16px 20px",borderBottom:"1px solid #f0f0f0"}}>
+      <div style={{display:"flex",gap:8,alignItems:"center"}}>
+        <input value={addEmail} onChange={e=>setAddEmail(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addShare();}} placeholder="Search by name or email..." style={{flex:1,padding:"8px 12px",border:"1px solid #e0e0e0",borderRadius:6,fontSize:13,outline:"none"}}/>
+        <select value={addAccess} onChange={e=>setAddAccess(e.target.value)} style={{padding:"8px 10px",border:"1px solid #e0e0e0",borderRadius:6,fontSize:12,outline:"none"}}>
+          <option value="write">Can edit</option>
+          <option value="read">View only</option>
+        </select>
+        <button onClick={addShare} style={{padding:"8px 14px",border:"none",borderRadius:6,background:"#6c5ce7",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,whiteSpace:"nowrap"}}>Share</button>
+      </div>
+    </div>
+    <div style={{flex:1,overflowY:"auto",padding:0}}>
+      <div style={{padding:"12px 20px",fontSize:11,fontWeight:700,color:"#999",textTransform:"uppercase",letterSpacing:.5}}>Owner</div>
+      <div style={{padding:"8px 20px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f5f5f5"}}>
+        <div style={{width:32,height:32,borderRadius:"50%",background:ownerMember?.color||"#6c5ce7",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{Initials(ownerMember?.name||"Admin")}</div>
+        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{ownerMember?.name||"Admin"}</div><div style={{fontSize:11,color:"#999"}}>{ownerMember?.email||""}</div></div>
+        <span style={{fontSize:11,color:"#00c875",fontWeight:700,background:"#e8f8ef",borderRadius:10,padding:"2px 10px"}}>Owner</span>
+      </div>
+      {shared.length>0&&<div style={{padding:"12px 20px 4px",fontSize:11,fontWeight:700,color:"#999",textTransform:"uppercase",letterSpacing:.5}}>Shared with</div>}
+      {shared.map(s=>{const m=teamMembers.find(t=>t.id===s.userId);if(!m)return null;return(<div key={s.userId} style={{padding:"10px 20px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid #f5f5f5"}}>
+        <div style={{width:32,height:32,borderRadius:"50%",background:m.color||"#ccc",color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700}}>{Initials(m.name)}</div>
+        <div style={{flex:1}}><div style={{fontSize:13,fontWeight:600}}>{m.name}</div><div style={{fontSize:11,color:"#999"}}>{m.email||""}</div></div>
+        <select value={s.access} onChange={e=>changeAccess(s.userId,e.target.value)} style={{padding:"4px 8px",border:"1px solid #e0e0e0",borderRadius:6,fontSize:11,outline:"none",color:s.access==="write"?"#0073ea":"#888",fontWeight:600}}>
+          <option value="write">Can edit</option>
+          <option value="read">View only</option>
+        </select>
+        <span onClick={()=>removeShare(s.userId)} style={{cursor:"pointer",color:"#ccc",fontSize:14}} onMouseEnter={e=>e.currentTarget.style.color="#e2445c"} onMouseLeave={e=>e.currentTarget.style.color="#ccc"}>✕</span>
+      </div>);})}
+      {shared.length===0&&<div style={{padding:"30px 20px",textAlign:"center",color:"#ccc",fontSize:13}}>Not shared with anyone yet.<br/>Add team members above.</div>}
+    </div>
+    <div style={{padding:"12px 20px",borderTop:"1px solid #e6e9ef",background:"#f8f9fb",fontSize:11,color:"#888"}}>
+      <b>Can edit</b> — full access to edit rows, groups, and columns<br/>
+      <b>View only</b> — can view the board but cannot make changes
+    </div>
+  </SidePanel>);
+};
+
 /* ─── PURE HELPERS (module-level = no recreation per render) ─── */
 const _mapGR=(b,gId,fn)=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:fn(g.rows)})});
 const _mapAllR=(b,fn)=>({...b,groups:b.groups.map(g=>({...g,rows:fn(g.rows)}))});
@@ -1338,7 +1468,7 @@ export default function App(){
   const snap=useCallback(()=>{setBoards(cur=>{undoRef.current=[...undoRef.current.slice(-(UNDO_MAX-1)),cur];return cur;});},[]);
   const undo=useCallback(()=>{if(!undoRef.current.length)return;const prev=undoRef.current[undoRef.current.length-1];undoRef.current=undoRef.current.slice(0,-1);setBoards(prev);setToast("↩ Undo successful");},[]);
   useEffect(()=>{const h=e=>{if((e.ctrlKey||e.metaKey)&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo();}};document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[undo]);
-  const [workspaces,setWorkspaces]=useState(INIT_WS);const [activeWs,setActiveWs]=useState("ws_main");const [wsPickerOpen,setWsPickerOpen]=useState(false);
+  const [workspaces,setWorkspaces]=useState(INIT_WS);const [activeWs,setActiveWs]=useState("ws_it");const [wsPickerOpen,setWsPickerOpen]=useState(false);
   const [catCol,setCatCol]=useState({"ACTIVE":false,"IN PROGRESS":false,"COMPLETED":true,"STALLED":true,"ON HOLD":true});
   const [people,setPeople]=useState(PEOPLE);const [statuses,setStatuses]=useState(STATS);const [priorities,setPriorities]=useState(PRIS);const [allTags,setAllTags]=useState(TAGS);
   const [autos,setAutos]=useState(()=>{const a={};IBOARDS.forEach(b=>{a[b.id]=[...DEF_AUTOS];});return a;});
@@ -1355,7 +1485,7 @@ export default function App(){
   const [expandedSub,setExpandedSub]=useState({});const [ctxMenu,setCtxMenu]=useState(null);
   const [notifsOpen,setNotifsOpen]=useState(false);const [notifs,setNotifs]=useState(NOTIFS);
   const [activityOpen,setActivityOpen]=useState(false);const [templateModal,setTemplateModal]=useState(false);const [toast,setToast]=useState(null);const [confirmDel,setConfirmDel]=useState(null);
-  const [resizing,setResizing]=useState(null);const [colCtx,setColCtx]=useState(null);const [syncModal,setSyncModal]=useState(false);const [dragOverBoardId,setDragOverBoardId]=useState(null);const [addColTypeMenu,setAddColTypeMenu]=useState(null);const [rnColId,setRnColId]=useState(null);const [rnColVal,setRnColVal]=useState("");const [headerIconOpen,setHeaderIconOpen]=useState(false);
+  const [resizing,setResizing]=useState(null);const [colCtx,setColCtx]=useState(null);const [syncModal,setSyncModal]=useState(false);const [dragOverBoardId,setDragOverBoardId]=useState(null);const [rnColId,setRnColId]=useState(null);const [rnColVal,setRnColVal]=useState("");const [headerIconOpen,setHeaderIconOpen]=useState(false);
   const [dragCol,setDragCol]=useState(null);const [dragOverCol,setDragOverCol]=useState(null);
   const [ioMenuOpen,setIoMenuOpen]=useState(false);const ioRef=useRef(null);const importRef=useRef(null);const contentRef=useRef(null);
   /* ─── User identity & admin ─── */
@@ -1368,12 +1498,16 @@ export default function App(){
   const [teamMembers,setTeamMembers]=useState(DEFAULT_TEAM);
   const [userMenuOpen,setUserMenuOpen]=useState(false);
   const [adminOpen,setAdminOpen]=useState(false);
+  const [sharePanel,setSharePanel]=useState(false);
+  const [wsSharePanel,setWsSharePanel]=useState(false);
   const userMenuRef=useRef(null);
   useEffect(()=>setHeaderIconOpen(false),[activeId]);
   useOutsideClick(ioRef,()=>setIoMenuOpen(false));
 
   const bi=boards.findIndex(b=>b.id===activeId);const board=boards[bi];const cols=board?.columns||DCOLS;
   const wsBoards=useMemo(()=>boards.filter(b=>b.wsId===activeWs),[boards,activeWs]);
+  /* Permission check: board is read-only if user is in shared list with access:"read" and is not owner */
+  const boardReadonly=useMemo(()=>{if(!board||!authedUser)return false;if(board.owner===authedUser.id||authedUser.role==="Admin")return false;const s=board.shared?.find(x=>x.userId===authedUser.id);if(s&&s.access==="read")return true;const ws=workspaces.find(w=>w.id===board.wsId);if(ws){if(ws.owner===authedUser.id)return false;const ws_s=ws.shared?.find(x=>x.userId===authedUser.id);if(ws_s&&ws_s.access==="read")return true;}return false;},[board,authedUser,workspaces]);
   const isWk=g=>g.name.toLowerCase().includes("weekly");
   const log=(a,d,c,boardIdOverride,source)=>setBoards(bs=>{const n=[...bs];const targetId=boardIdOverride||activeId;const i=n.findIndex(b=>b.id===targetId);if(i<0)return bs;n[i]={...n[i],hist:[...(n[i].hist||[]),{action:a,detail:d,time:ts(),color:c,source:source||null}]};return n;});
   const logSync=(bId,a,d,c,src)=>{log(a,d,c,bId,src);if(src&&src.includes("Auto-synced"))setToast(d);};
@@ -1385,12 +1519,86 @@ export default function App(){
 
   const runAutos=useCallback((f,v,row,gId)=>{
     (autos[activeId]||[]).filter(a=>a.enabled).forEach(a=>{
-      if(a.trigger==="status_done"&&f==="status"&&v==="Done"){setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:g.rows.map(r=>r.id!==row.id?r:{...r,completionDate:today()})})}));log("Auto","Completion date set for \""+row.task+"\"","#00c875");}
+      if(a.trigger==="status_done"&&f==="status"&&v==="Done"){
+        setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:g.rows.map(r=>r.id!==row.id?r:{...r,completionDate:today(),completionStatus:"Done On Time"})})}));
+        log("Auto","Completion date set for \""+row.task+"\"","#00c875");
+      }
+      if(a.trigger==="status_done_move"&&f==="status"&&v==="Done"){
+        setB(bi,b=>{const gs=[...b.groups];const lastG=gs[gs.length-1];if(!lastG||lastG.id===gId)return b;let moved;const ng=gs.map(g=>{if(g.id!==gId)return g;moved=g.rows.find(r=>r.id===row.id);return{...g,rows:g.rows.filter(r=>r.id!==row.id)};});if(!moved)return b;ng[ng.length-1]={...ng[ng.length-1],rows:[...ng[ng.length-1].rows,moved]};return{...b,groups:ng};});
+        log("Auto","\""+row.task+"\" moved to last group","#a25ddc");
+      }
+      if(a.trigger==="owner_set"&&f==="owner"&&v){
+        setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,updates:[...(r.updates||[]),mkU("Assigned to "+v,"Automation")]})));
+        log("Auto","Assignment update added for \""+row.task+"\"","#579bfc");
+      }
+      if(a.trigger==="status_stuck_notify"&&f==="status"&&v==="Stuck"){
+        setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,updates:[...(r.updates||[]),mkU("⚠ Item is now STUCK — needs attention","Automation")],priority:r.priority==="Low"||r.priority==="No Priority"?"High":r.priority})));
+        log("Auto","Stuck alert added for \""+row.task+"\"","#e2445c");
+      }
+      if(a.trigger==="status_progress_date"&&f==="status"&&(v==="In Progress"||v==="Working on it")&&!row.tlStart){
+        setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,tlStart:today()})));
+        log("Auto","Start date set for \""+row.task+"\"","#579bfc");
+      }
+      if(a.trigger==="subitems_done"&&f==="status"&&row.subitems?.length>0){
+        const allDone=row.subitems.every(s=>s.status==="Done");
+        if(allDone&&row.status!=="Done"){
+          setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,status:"Done",completionDate:today()})));
+          log("Auto","All subitems done → \""+row.task+"\" marked Done","#00c875");
+        }
+      }
+      if(a.trigger==="item_created_priority"&&f==="__created"){
+        setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,priority:"Medium"})));
+        log("Auto","Priority set to Medium for new item","#fdab3d");
+      }
+      if(a.trigger==="item_created_assign"&&f==="__created"&&currentUser?.name){
+        setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,owner:currentUser.name})));
+        log("Auto","Auto-assigned to "+currentUser.name,"#579bfc");
+      }
+      if(a.trigger==="item_created_duedate"&&f==="__created"){
+        const d=new Date();d.setDate(d.getDate()+7);const due=d.toISOString().split("T")[0];
+        setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,tlEnd:due})));
+        log("Auto","Due date set to "+due+" for new item","#579bfc");
+      }
+      if(a.trigger==="edit_start"&&f==="task"&&v&&row.status==="Not Started"){
+        setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,status:"In Progress"})));
+        log("Auto","\""+v+"\" auto-started on edit","#0073ea");
+      }
+      if(a.trigger==="email_done"&&f==="status"&&v==="Done"){
+        setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==row.id?r:{...r,updates:[...(r.updates||[]),mkU("✅ Completion logged for email digest — "+today(),"Automation")]})));
+        log("Auto","Completion logged for \""+row.task+"\"","#00c875");
+      }
     });
-  },[autos,activeId,bi]);
+  },[autos,activeId,bi,currentUser]);
+
+  /* ─── Date-based automations — run every 60s (uses ref to avoid infinite loop) ─── */
+  const boardsRef=useRef(boards);boardsRef.current=boards;
+  const biRef=useRef(bi);biRef.current=bi;
+  useEffect(()=>{
+    const run=()=>{
+      const ba=autos[activeId]||[];if(!ba.some(a=>a.enabled&&(a.trigger==="date_passed"||a.trigger==="deadline_reminder"||a.trigger==="recurring_weekly")))return;
+      const curBi=biRef.current;const b=boardsRef.current[curBi];if(!b||b.isMain||b.isDashboard||b.isSummary)return;
+      let changed=false;const td=today();
+      const nb={...b,groups:b.groups.map(g=>({...g,rows:g.rows.map(r=>{
+        const upd={};
+        if(ba.find(a=>a.enabled&&a.trigger==="date_passed")&&r.tlEnd&&r.status!=="Done"&&r.status!=="Stuck"&&new Date(r.tlEnd)<new Date(td)){
+          upd.status="Stuck";upd.updates=[...(r.updates||[]),mkU("⏰ Auto-set to Stuck — past due date "+r.tlEnd,"Automation")];changed=true;
+        }
+        if(ba.find(a=>a.enabled&&a.trigger==="deadline_reminder")&&r.tlEnd&&r.status!=="Done"&&r.priority!=="High"&&r.priority!=="Critical"){
+          const d=daysDiff(r.tlEnd);if(d>=0&&d<=3){upd.priority="High";upd.updates=[...(r.updates||upd.updates||[]),mkU("📅 Deadline in "+d+" days — priority raised","Automation")];changed=true;}
+        }
+        return Object.keys(upd).length?{...r,...upd}:r;
+      })}))};
+      if(ba.find(a=>a.enabled&&a.trigger==="recurring_weekly")&&nb.groups.length>0){
+        const fg=nb.groups[0];const hasToday=fg.rows.some(r=>r.task&&r.task.includes("Weekly Standup")&&r.task.includes(td));
+        if(!hasToday&&new Date().getDay()===1){nb.groups[0]={...fg,rows:[mk({task:"Weekly Standup — "+td,owner:"",status:"Not Started",priority:"Medium",tlStart:td,tlEnd:td,tags:["Review"]}),...fg.rows]};changed=true;}
+      }
+      if(changed){snap();setBoards(bs=>{const n=[...bs];n[curBi]=nb;return n;});log("Auto","Date-based automations ran","#fdab3d");}
+    };
+    run();const iv=setInterval(run,60000);return()=>clearInterval(iv);
+  },[autos,activeId,snap]);
 
   /* NO_BULK moved to module level as _NO_BULK */
-  const upRow=(gId,rId,f,v)=>{const grp=board.groups.find(g=>g.id===gId);const row=grp?.rows.find(r=>r.id===rId);
+  const upRow=(gId,rId,f,v)=>{if(boardReadonly&&f!=="checked")return;const grp=board.groups.find(g=>g.id===gId);const row=grp?.rows.find(r=>r.id===rId);
     const applyBulk=row?.checked&&selCount>1&&!_NO_BULK.has(f);
     const sel=applyBulk?new Set(selectedRows.map(s=>s.rId)):null;
     const needsSync=f==="status"||f==="weeklyUpdate"||f==="weeklyStatus";
@@ -1398,9 +1606,10 @@ export default function App(){
     updActive(b=>applyBulk?_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,[f]:v}:r)):_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,[f]:v})),needsSync,quiet);
     if(applyBulk){log("Bulk "+f,selCount+" items → "+String(v),"#0073ea");}
     else if(f==="status"){log("Status","\""+((row?.task)||"")+"\" → "+v,"#00c875");runAutos(f,v,row,gId);}
+    else if(f==="owner"||f==="task"){runAutos(f,v,row,gId);}
   };
-  const addRow=useCallback(gId=>{updActive(b=>_mapGR(b,gId,rs=>[...rs,mk()]),true);log("Row","Added","#579bfc");},[updActive]);
-  const delRow=useCallback((gId,rId)=>updActive(b=>_mapGR(b,gId,rs=>rs.filter(r=>r.id!==rId)),true),[updActive]);
+  const addRow=useCallback(gId=>{if(boardReadonly)return;const nr=mk();updActive(b=>_mapGR(b,gId,rs=>[...rs,nr]),true);log("Row","Added","#579bfc");runAutos("__created","",nr,gId);},[updActive,boardReadonly,runAutos]);
+  const delRow=useCallback((gId,rId)=>{if(boardReadonly)return;updActive(b=>_mapGR(b,gId,rs=>rs.filter(r=>r.id!==rId)),true);},[updActive,boardReadonly]);
   const dupRow=(gId,rId)=>{const grp=board.groups.find(g=>g.id===gId);const row=grp?.rows.find(r=>r.id===rId);if(row){const nr={...row,id:uid(),task:row.task+" (copy)",subitems:(row.subitems||[]).map(s=>({...s,id:uid()})),updates:[]};setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:[...g.rows,nr]})}));}};
   /* --- Bulk selection helpers --- */
   const selectedRows=useMemo(()=>{if(!board)return[];const sel=[];board.groups.forEach(g=>{g.rows.forEach(r=>{if(r.checked&&!r._syncReadonly)sel.push({gId:g.id,rId:r.id,task:r.task});});});return sel;},[board]);
@@ -1410,7 +1619,7 @@ export default function App(){
   const bulkDelete=()=>{const sel=new Set(selectedRows.map(s=>s.rId));updActive(b=>_mapAllR(b,rs=>rs.filter(r=>!sel.has(r.id))),true);log("Bulk Delete",selCount+" items deleted","#e2445c");};
   const bulkDuplicate=()=>{const sel=new Set(selectedRows.map(s=>s.rId));setB(bi,b=>_mapAllR(b,rs=>{const dups=rs.filter(r=>sel.has(r.id)).map(r=>({...r,id:uid(),task:r.task+" (copy)",checked:false,subitems:(r.subitems||[]).map(s=>({...s,id:uid()})),updates:[]}));return[...rs.map(r=>sel.has(r.id)?{...r,checked:false}:r),...dups];}));log("Bulk Duplicate",selCount+" items duplicated","#579bfc");};
   const bulkMove=(toGId)=>{const sel=new Set(selectedRows.map(s=>s.rId));setB(bi,b=>{let moved=[];const gs=b.groups.map(g=>{const mv=g.rows.filter(r=>sel.has(r.id));moved=moved.concat(mv.map(r=>({...r,checked:false})));return{...g,rows:g.rows.filter(r=>!sel.has(r.id))};});return{...b,groups:gs.map(g=>g.id!==toGId?g:{...g,rows:[...g.rows,...moved]})};});log("Bulk Move",selCount+" items moved","#fdab3d");};
-  const bulkSetStatus=(status)=>{const sel=new Set(selectedRows.map(s=>s.rId));updActive(b=>_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,status,checked:false}:r)),true);log("Bulk Status",selCount+" items → "+status,"#00c875");};
+  const bulkSetStatus=(status)=>{const sel=new Set(selectedRows.map(s=>s.rId));const autoComplete=(autos[activeId]||[]).some(a=>a.enabled&&a.trigger==="status_done");updActive(b=>_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,status,checked:false,...(status==="Done"&&autoComplete?{completionDate:today(),completionStatus:"Done On Time"}:{})}:r)),true);log("Bulk Status",selCount+" items → "+status,"#00c875");};
   const bulkSetPriority=(priority)=>{const sel=new Set(selectedRows.map(s=>s.rId));setB(bi,b=>_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,priority,checked:false}:r)));log("Bulk Priority",selCount+" items → "+priority,"#fdab3d");};
   const addGroup=()=>{setB(bi,b=>({...b,groups:[...b.groups,{id:uid(),name:"New Group",color:CL[b.groups.length%CL.length],collapsed:false,rows:[]}]}));};
   const togGroup=gId=>setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,collapsed:!g.collapsed})}),true);
@@ -1490,7 +1699,8 @@ export default function App(){
     e.target.value="";
   };
 
-  const onResizeStart=(e,colId)=>{e.preventDefault();e.stopPropagation();const startX=e.clientX;const col=cols.find(c=>c.id===colId);const startW=col?.w||120;const onMove=ev=>{const diff=ev.clientX-startX;const nw=Math.max(50,startW+diff);setCols(cs=>cs.map(c=>c.id!==colId?c:{...c,w:nw}));};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);setResizing(null);};setResizing(colId);document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);};
+  const onResizeStart=(e,colId)=>{e.preventDefault();e.stopPropagation();const startX=e.clientX;const startCols=[...(board?.columns||DCOLS)];const col=startCols.find(c=>c.id===colId);const startW=col?.w||120;const onMove=ev=>{const diff=ev.clientX-startX;const nw=Math.max(50,startW+diff);setCols(cs=>cs.map(c=>c.id!==colId?c:{...c,w:nw}));};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);setResizing(null);};setResizing(colId);document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);};
+  const onResizeDblClick=(colId)=>{const defaults={task:220,owner:100,status:130,priority:130,timeline:200,tags:120,duration:90,timer:110,updates:60,weeklyStatus:260,progress:150,weeklyUpdate:230,linkedBoard:130,tltype:130,customer:130,team:110};setCols(cs=>cs.map(c=>c.id!==colId?c:{...c,w:defaults[colId]||140}));};
 
   const doSort=(gId,colId,dir)=>{if(!dir){setSortSt(s=>{const n={...s};delete n[gId];return n;});return;}setSortSt(s=>({...s,[gId]:{colId,dir}}));};
   const processRows=useCallback((rows,gId)=>{
@@ -1545,7 +1755,10 @@ export default function App(){
                 <span>{ws.icon}</span><span style={{fontSize:13,fontWeight:ws.id===activeWs?700:400}}>{ws.name}</span>{ws.id===activeWs&&<span style={{marginLeft:"auto",color:"#579bfc",fontSize:10}}>●</span>}
               </div>))}
               {addingWs?<div style={{padding:"6px 10px"}}><input value={newWs} onChange={e=>setNewWs(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&newWs.trim()){const nw={id:uid(),name:newWs.trim(),icon:"📁"};setWorkspaces(w=>[...w,nw]);setActiveWs(nw.id);setNewWs("");setAddingWs(false);setWsPickerOpen(false);}}} onBlur={()=>setAddingWs(false)} placeholder="Name..." style={{width:"100%",background:"rgba(255,255,255,.1)",border:"none",color:"#fff",borderRadius:4,padding:"6px 8px",fontSize:12,outline:"none",boxSizing:"border-box"}} autoFocus/></div>
-              :<div onClick={()=>setAddingWs(true)} style={{padding:"8px 12px",fontSize:12,color:"rgba(255,255,255,.4)",cursor:"pointer",borderTop:"1px solid rgba(255,255,255,.06)"}}>+ New workspace</div>}
+              :<div style={{display:"flex",borderTop:"1px solid rgba(255,255,255,.06)"}}>
+                <div onClick={()=>setAddingWs(true)} style={{flex:1,padding:"8px 12px",fontSize:12,color:"rgba(255,255,255,.4)",cursor:"pointer"}}>+ New workspace</div>
+                <div onClick={()=>{setWsSharePanel(true);setWsPickerOpen(false);}} style={{padding:"8px 12px",fontSize:12,color:"rgba(255,255,255,.4)",cursor:"pointer",borderLeft:"1px solid rgba(255,255,255,.06)"}} onMouseEnter={e=>e.currentTarget.style.color="rgba(255,255,255,.7)"} onMouseLeave={e=>e.currentTarget.style.color="rgba(255,255,255,.4)"}>👥 Share</div>
+              </div>}
             </div>}
           </div>
           <div style={{flex:1,overflowY:"auto",padding:"6px 0"}}>
@@ -1626,7 +1839,7 @@ export default function App(){
             <div ref={userMenuRef} style={{position:"relative"}}>
               <div onClick={()=>setUserMenuOpen(o=>!o)} style={{display:"flex",alignItems:"center",gap:6,cursor:"pointer",padding:"3px 8px 3px 4px",borderRadius:20,background:userMenuOpen?"#f0eeff":"transparent",transition:"background .12s"}} onMouseEnter={e=>{if(!userMenuOpen)e.currentTarget.style.background="#f5f6f8";}} onMouseLeave={e=>{if(!userMenuOpen)e.currentTarget.style.background="transparent";}}>
                 <div style={{width:30,height:30,borderRadius:"50%",background:currentUser.color,color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,position:"relative",flexShrink:0}}>
-                  {currentUser.name?currentUser.name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase():"?"}
+                  {Initials(currentUser.name)}
                   <div style={{position:"absolute",bottom:0,right:0,width:9,height:9,borderRadius:"50%",background:"#00c875",border:"2px solid #fff"}}/>
                 </div>
                 <span style={{fontSize:12,fontWeight:600,color:"#333",maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</span>
@@ -1641,11 +1854,12 @@ export default function App(){
           :board?.isSummary?<div style={{paddingBottom:10,fontSize:13,color:"#888",display:"flex",alignItems:"center",gap:10}}>Executive summary — categorized action items for leadership review <button onClick={handleExportSummaryExcel} style={{padding:"3px 10px",borderRadius:5,border:"1px solid #e0e0e0",background:"#fff",cursor:"pointer",fontSize:11,color:"#555",display:"flex",alignItems:"center",gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:"1px solid #e0e0e0",background:"#fff",cursor:"pointer",fontSize:11,color:"#555",display:"flex",alignItems:"center",gap:4}}>📄 PDF</button></div>
           :<div style={{display:"flex",alignItems:"center",gap:6,paddingBottom:10,flexWrap:"wrap"}}>
             {["Main table","Kanban","Dashboard","Gantt"].map(v=>(<button key={v} onClick={()=>setActiveView(v)} style={{padding:"5px 12px",borderRadius:6,border:activeView===v?"none":"1px solid #e0e0e0",background:activeView===v?"#fff":"transparent",cursor:"pointer",fontSize:13,fontWeight:activeView===v?600:400,boxShadow:activeView===v?"0 1px 3px rgba(0,0,0,.08)":"none"}}>{v}</button>))}
-            <button onClick={()=>addRow(board?.groups?.[0]?.id)} style={{padding:"5px 14px",borderRadius:6,border:"none",background:"#0073ea",color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600}}>+ Item</button>
-            <button onClick={addGroup} style={{padding:"5px 12px",borderRadius:6,border:"1px solid #e0e0e0",background:"#fff",cursor:"pointer",fontSize:13}}>+ Group</button>
+            <button disabled={boardReadonly} onClick={()=>addRow(board?.groups?.[0]?.id)} style={{padding:"5px 14px",borderRadius:6,border:"none",background:boardReadonly?"#ccc":"#0073ea",color:"#fff",cursor:boardReadonly?"default":"pointer",fontSize:13,fontWeight:600}}>+ Item</button>
+            <button disabled={boardReadonly} onClick={addGroup} style={{padding:"5px 12px",borderRadius:6,border:"1px solid #e0e0e0",background:boardReadonly?"#f5f5f5":"#fff",cursor:boardReadonly?"default":"pointer",fontSize:13,color:boardReadonly?"#ccc":"#333"}}>+ Group</button>
             <div style={{position:"relative"}}><button onClick={()=>setFilterOpen(!filterOpen)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid #e0e0e0",background:filterOpen?"#e6f0ff":"#fff",cursor:"pointer",fontSize:13,display:"flex",alignItems:"center",gap:4}}>🔽 Filter {Object.values(filters).flat().length>0&&<span style={{background:"#6c5ce7",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>{Object.values(filters).flat().length}</span>}{globalSortBy!=="Default"&&<span style={{background:"#fdab3d",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>Sort</span>}{hiddenCols.length>0&&<span style={{background:"#a25ddc",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>-{hiddenCols.length}</span>}</button>{filterOpen&&<FilterPanel filters={filters} setFilters={setFilters} people={people} statuses={statuses} priorities={priorities} allTags={allTags} onClose={()=>setFilterOpen(false)} sortBy={globalSortBy} setSortBy={setGlobalSortBy} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols}/>}</div>
             <button onClick={()=>setAutoPanel(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid #e0e0e0",background:"#fff",cursor:"pointer",fontSize:13}}>⚡ Auto {boardAutos.filter(a=>a.enabled).length>0&&<span style={{background:"#fdab3d",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{boardAutos.filter(a=>a.enabled).length}</span>}</button>
             {!board?.isMain&&<button onClick={()=>setSyncModal(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.syncTargets?.length?"#a25ddc":"#e0e0e0"),background:board?.syncTargets?.length?"#f5f3ff":"#fff",cursor:"pointer",fontSize:13,color:board?.syncTargets?.length?"#a25ddc":"#333"}}>🔗 Sync {board?.syncTargets?.length>0&&<span style={{background:"#a25ddc",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{board.syncTargets.length}</span>}</button>}
+            <button onClick={()=>setSharePanel(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.shared?.length?"#0073ea":"#e0e0e0"),background:board?.shared?.length?"#e6f0ff":"#fff",cursor:"pointer",fontSize:13,color:board?.shared?.length?"#0073ea":"#333"}}>👥 Share {board?.shared?.length>0&&<span style={{background:"#0073ea",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{board.shared.length}</span>}</button>
           </div>}
         </div>
 
@@ -1653,6 +1867,7 @@ export default function App(){
           {board?.isDashboard&&<DashboardBoard boards={boards} statuses={statuses} priorities={priorities}/>}
           {board?.isSummary&&<SummaryBoard boards={boards} boardId={board.summarySrc} onChangeSrc={changeSummarySrc}/>}
           {!board?.isDashboard&&!board?.isSummary&&board?.isMain&&<SyncBanner icon="📊" title="Portfolio Board" sub="– Status & Progress auto-sync from linked task boards" pill="Live Sync ON"/>}
+          {boardReadonly&&<div style={{background:"#fff8e7",border:"1px solid #ffeaa0",borderRadius:8,padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10,fontSize:13}}><span style={{fontSize:16}}>🔒</span><span style={{fontWeight:600,color:"#b8860b"}}>View Only</span><span style={{color:"#999"}}>— You have read-only access to this board. Contact the owner to request edit access.</span></div>}
           {board&&!board.isMain&&board.linkedMainBoardId&&<SyncBanner icon="🔗" title="Linked Board" sub="– Changes sync to portfolio board automatically" pill="Live Sync ON"/>}
           {board&&!board.isMain&&board.syncTargets?.length>0&&<div style={{background:"linear-gradient(90deg,#faf5ff,#f5f0ff)",border:"1px solid #e0d8ff",borderRadius:8,padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10,fontSize:13,flexWrap:"wrap"}}>
             <span style={{fontWeight:600}}>⇄ Cross-board sync</span><span style={{color:"#888"}}>→ {board.syncTargets.length} board{board.syncTargets.length>1?"s":""}: </span>
@@ -1676,7 +1891,7 @@ export default function App(){
                     <span onClick={()=>{if(col.id==="linkedBoard")return;const nd=isSorted&&ss.dir==="asc"?"desc":isSorted&&ss.dir==="desc"?null:"asc";doSort(group.id,sortId,nd);}} style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{col.name}{col.synced&&<span style={{marginLeft:4,fontSize:9,color:"#a25ddc"}}>🔗</span>}</span>
                     {isSorted&&<span style={{fontSize:9,color:"#0073ea"}}>{ss.dir==="asc"?"↑":"↓"}</span>}
                     <span className="colMenu" onClick={e=>{e.stopPropagation();setColCtx({x:e.clientX,y:e.clientY,colId:col.id,gId:group.id});}} style={{opacity:0,cursor:"pointer",padding:"2px 3px",borderRadius:3,color:"#999",fontSize:14,transition:"opacity .15s",lineHeight:1}} onMouseEnter={e=>e.currentTarget.style.background="#eee"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>⋮</span>
-                    <div onMouseDown={e=>onResizeStart(e,col.id)} onClick={e=>e.stopPropagation()} style={{position:"absolute",right:0,top:0,bottom:0,width:4,cursor:"col-resize",background:resizing===col.id?"#0073ea":"transparent"}} onMouseEnter={e=>e.currentTarget.style.background="#0073ea"} onMouseLeave={e=>{if(resizing!==col.id)e.currentTarget.style.background="transparent";}}/>
+                    <div onMouseDown={e=>onResizeStart(e,col.id)} onDoubleClick={()=>onResizeDblClick(col.id)} onClick={e=>e.stopPropagation()} style={{position:"absolute",right:-6,top:0,bottom:0,width:16,cursor:"col-resize",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}} onMouseEnter={e=>e.currentTarget.firstChild.style.background="#0073ea"} onMouseLeave={e=>{if(resizing!==col.id)e.currentTarget.firstChild.style.background="#d8dbe0";}}><div style={{width:3,height:"60%",borderRadius:2,background:resizing===col.id?"#0073ea":"#d8dbe0",transition:"background .12s"}}/></div>
                   </div>);})}
                   <div style={{width:36,flexShrink:0}}/>
                 </div>
@@ -1726,7 +1941,7 @@ export default function App(){
                     :<span onClick={()=>{if(col.id==="weeklyStatus")return;const cid=col.id==="timeline"?"tlStart":col.id;const nd=isSorted&&ss.dir==="asc"?"desc":isSorted&&ss.dir==="desc"?null:"asc";doSort(group.id,cid,nd);}} style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{col.name}</span>}
                     {isSorted&&<span style={{fontSize:9,color:"#0073ea"}}>{ss.dir==="asc"?"↑":"↓"}</span>}
                     <span className="colMenu" onClick={e=>{e.stopPropagation();setColCtx({x:e.clientX,y:e.clientY,colId:col.id,gId:group.id});}} style={{opacity:0,cursor:"pointer",padding:"2px 3px",borderRadius:3,color:"#999",fontSize:14,transition:"opacity .15s",lineHeight:1}} onMouseEnter={e=>e.currentTarget.style.background="#eee"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>⋮</span>
-                    <div onMouseDown={e=>onResizeStart(e,col.id)} onClick={e=>e.stopPropagation()} style={{position:"absolute",right:0,top:0,bottom:0,width:4,cursor:"col-resize",background:resizing===col.id?"#0073ea":"transparent"}} onMouseEnter={e=>e.currentTarget.style.background="#0073ea"} onMouseLeave={e=>{if(resizing!==col.id)e.currentTarget.style.background="transparent";}}/>
+                    <div onMouseDown={e=>onResizeStart(e,col.id)} onDoubleClick={()=>onResizeDblClick(col.id)} onClick={e=>e.stopPropagation()} style={{position:"absolute",right:-6,top:0,bottom:0,width:16,cursor:"col-resize",display:"flex",alignItems:"center",justifyContent:"center",zIndex:2}} onMouseEnter={e=>e.currentTarget.firstChild.style.background="#0073ea"} onMouseLeave={e=>{if(resizing!==col.id)e.currentTarget.firstChild.style.background="#d8dbe0";}}><div style={{width:3,height:"60%",borderRadius:2,background:resizing===col.id?"#0073ea":"#d8dbe0",transition:"background .12s"}}/></div>
                   </div>);})}
                   <div onClick={e=>{e.stopPropagation();setColCtx({x:e.clientX,y:e.clientY,colId:null,gId:group.id,addOnly:true});}} style={{width:36,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#aaa",fontSize:18}} title="Add column">+</div>
                 </div>
@@ -1825,11 +2040,13 @@ export default function App(){
       />}
       {syncModal&&board&&<SyncModal board={board} allBoards={wsBoards} onClose={()=>setSyncModal(false)} onAddSync={id=>{addSyncTarget(id);}} onRemoveSync={id=>{removeSyncTarget(id);}}/>}
       {adminOpen&&<AdminPanel teamMembers={teamMembers} setTeamMembers={setTeamMembers} currentUser={currentUser} onClose={()=>setAdminOpen(false)}/>}
+      {sharePanel&&board&&<SharePanel board={board} teamMembers={teamMembers} onUpdate={newShared=>{setBoards(bs=>{const n=[...bs];const i=n.findIndex(b=>b.id===activeId);if(i<0)return bs;n[i]={...n[i],shared:newShared};return n;});}} onClose={()=>setSharePanel(false)}/>}
+      {wsSharePanel&&<WsSharePanel workspace={workspaces.find(w=>w.id===activeWs)} teamMembers={teamMembers} onUpdate={newShared=>{setWorkspaces(ws=>ws.map(w=>w.id!==activeWs?w:{...w,shared:newShared}));}} onClose={()=>setWsSharePanel(false)}/>}
     </div>
   );
 }
 
-const AutoPanel=({autos,setAutos,onClose,boardName})=>{
+const AutoPanel=memo(({autos,setAutos,onClose,boardName})=>{
   const [view,setView]=useState("browse");const [search,setSearch]=useState("");const [catFilter,setCatFilter]=useState("All");
   const cats=["All",...AUTO_RECIPES.reduce((acc,r)=>acc.includes(r.cat)?acc:[...acc,r.cat],[])];
   const filtered=AUTO_RECIPES.filter(r=>(catFilter==="All"||r.cat===catFilter)&&(!search||r.title.toLowerCase().includes(search.toLowerCase())||r.desc.toLowerCase().includes(search.toLowerCase())));
@@ -1860,9 +2077,9 @@ const AutoPanel=({autos,setAutos,onClose,boardName})=>{
       {autos.length===0&&<div style={{textAlign:"center",color:"#aaa",padding:40}}>No active automations. Browse recipes to enable some.</div>}
       {autos.map((a,i)=>(<div key={a.id} style={{padding:"14px 16px",background:"#fff",borderRadius:8,marginBottom:8,border:"1px solid #e6e9ef",display:"flex",alignItems:"center",gap:10}}>
         <div style={{flex:1}}><div style={{fontSize:13,fontWeight:700}}>{a.title||a.label}</div><div style={{fontSize:11,color:"#888"}}>{a.label}</div>{a.cat&&<span style={{fontSize:10,background:"#f0f0f0",borderRadius:4,padding:"1px 6px",color:"#666"}}>{a.cat}</span>}</div>
-        <div onClick={()=>{const n=[...autos];n[i]={...n[i],enabled:!n[i].enabled};setAutos(n);}} style={{width:40,height:22,borderRadius:11,background:a.enabled?"#00c875":"#ccc",cursor:"pointer",position:"relative",flexShrink:0}}><div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:2,left:a.enabled?20:2,transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/></div>
+        <Toggle on={a.enabled} onToggle={()=>{const n=[...autos];n[i]={...n[i],enabled:!n[i].enabled};setAutos(n);}}/>
         <span onClick={()=>setAutos(autos.filter(x=>x.id!==a.id))} style={{cursor:"pointer",color:"#ccc",fontSize:14}}>✕</span>
       </div>))}
     </div>}
   </SidePanel>);
-};
+});
