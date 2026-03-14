@@ -157,7 +157,7 @@ const THEMES={
   dark:{bg:"#1a1a2e",card:"#22223a",text:"#e0e0e0",textSoft:"#b0b0c0",textMuted:"#707080",border:"#333350",borderSoft:"#2a2a45",headerBg:"#22223a",headerBorder:"#333350",rowHover:"#2a2a48",rowAlt:"#252540",input:"#2a2a45",inputBorder:"#444460",panelBg:"#22223a",toolbarBg:"#22223a"},
 };
 
-const APP_VERSION="3.4.1";
+const APP_VERSION="3.4.2";
 const ts=()=>new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const CL=["#579bfc","#00c875","#a25ddc","#fdab3d","#e2445c","#037f4c","#ff642e","#00d2d2","#bb3354","#175a63"];
 const SC={"Done":"#00c875","Working on it":"#fdab3d","Stuck":"#e2445c","Not Started":"#c4c4c4","Future steps":"#a25ddc","In Progress":"#0073ea","Waiting":"#7c5cfc","Review":"#037f4c"};
@@ -1448,7 +1448,7 @@ const ColCtxMenu=({pos,col,onClose,onSort,onAddCol,onRename,onHide,onDelete,onPi
   </div>);
 };
 
-const SyncModal=({board,allBoards,onClose,onAddSync,onRemoveSync})=>{
+const SyncModal=({board,allBoards,onClose,onAddSync,onRemoveSync,onLinkPortfolio,isLinkedToPortfolio})=>{
   const targets=board?.syncTargets||[];
   const available=allBoards.filter(b=>b.id!==board?.id&&!targets.some(t=>t.boardId===b.id));
   return(<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:100000,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={onClose}><div onClick={e=>e.stopPropagation()} style={{background:V.card,borderRadius:12,width:480,padding:24,maxHeight:"80vh",overflowY:"auto"}}>
@@ -1473,6 +1473,12 @@ const SyncModal=({board,allBoards,onClose,onAddSync,onRemoveSync})=>{
         <span style={{fontSize:16}}>{b.icon||"📋"}</span>
         <div><div style={{fontSize:13,fontWeight:600}}>{b.name}</div><div style={{fontSize:10,color:V.tMut}}>{b.cat} • {b.groups.reduce((a,g)=>a+g.rows.length,0)} items</div></div>
       </div>))}
+    </div>}
+    {onLinkPortfolio&&<div style={{marginTop:12,borderTop:B.bdrS,paddingTop:12}}>
+      <div style={{fontSize:12,fontWeight:700,color:V.tSoft,marginBottom:8}}>PORTFOLIO SYNC</div>
+      <button onClick={()=>{onLinkPortfolio();onClose();}} style={{width:"100%",padding:"10px 14px",border:isLinkedToPortfolio?"1px solid #00c875":"1px dashed #a25ddc",borderRadius:8,background:isLinkedToPortfolio?"#f0fffe":"#f8f5ff",cursor:"pointer",fontSize:13,color:isLinkedToPortfolio?"#037f4c":"#a25ddc",fontWeight:600,display:"flex",alignItems:"center",gap:8}}>
+        {isLinkedToPortfolio?"📊 Synced to Portfolio ✓":"📊 Link to Portfolio"}
+      </button>
     </div>}
   </div></div>);
 };
@@ -2029,7 +2035,7 @@ export default function App(){
     {id:"tpl_bug",name:"Bug Report",config:{task:"Bug — ",status:"Not Started",priority:"High",tags:["Bug"]}},
     {id:"tpl_feature",name:"Feature Request",config:{task:"Feature — ",status:"Not Started",priority:"Medium",tags:["Feature"]}},
   ]);
-  const [tplMenuOpen,setTplMenuOpen]=useState(false);
+  const [tplMenuOpen,setTplMenuOpen]=useState(false);const [viewDropOpen,setViewDropOpen]=useState(false);
   const [savedFilters,setSavedFilters]=useState(()=>_saved?.savedFilters||[
     {id:"sf_1",name:"My overdue items",quickFilter:"overdue",filters:{status:[],owner:[],priority:[],tags:[]}},
     {id:"sf_2",name:"High priority stuck",quickFilter:"stuck",filters:{status:[],owner:[],priority:["High","Critical"],tags:[]}},
@@ -2590,11 +2596,9 @@ export default function App(){
             :<div>
               <h2 onClick={()=>setEditBN(board?.name||"")} style={{margin:0,fontSize:20,fontWeight:700,cursor:"pointer",lineHeight:1.2}}>{board?.name||"Board"}</h2>
               {board&&!board.isDashboard&&!board.isSummary&&(()=>{const all=board.groups.flatMap(g=>g.rows);const t=all.length;const d=all.filter(r=>r.status==="Done").length;const pct=t?Math.round(d/t*100):0;return(
-                <div style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:T.textMuted,marginTop:2}}>
-                  {board.desc&&<span style={{color:T.textSoft}}>{board.desc.slice(0,50)}{board.desc.length>50?"…":""}</span>}
-                  {board.desc&&<span>·</span>}
+                <div style={{display:"flex",gap:14,alignItems:"center",fontSize:11,color:T.textMuted,marginTop:3}}>
                   <span>{t} item{t!==1?"s":""}</span>
-                  <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:32,height:3,borderRadius:2,background:T.border,overflow:"hidden",display:"inline-block"}}><span style={{width:pct+"%",height:3,borderRadius:2,background:pct===100?"#00c875":"#0073ea",display:"block"}}/></span>{pct}%</span>
+                  <span style={{display:"flex",alignItems:"center",gap:4}}><span style={{width:40,height:4,borderRadius:2,background:T.border,overflow:"hidden",display:"inline-block"}}><span style={{width:pct+"%",height:4,borderRadius:2,background:pct===100?"#00c875":"#0073ea",display:"block"}}/></span><span style={{fontWeight:600}}>{pct}%</span></span>
                   {board.groups.length>1&&<span>{board.groups.length} groups</span>}
                 </div>);})()}
             </div>}
@@ -2650,7 +2654,11 @@ export default function App(){
           {board?.isDashboard?<div style={{paddingBottom:10,fontSize:13,color:T.textMuted,display:"flex",alignItems:"center",gap:10}}>Cross-board analytics — aggregates all task boards in your workspace <button onClick={handleExportDashExcel} style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,display:"flex",alignItems:"center",gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,display:"flex",alignItems:"center",gap:4}}>📄 PDF</button></div>
           :board?.isSummary?<div style={{paddingBottom:10,fontSize:13,color:T.textMuted,display:"flex",alignItems:"center",gap:10}}>Executive summary — categorized action items for leadership review <button onClick={handleExportSummaryExcel} style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,display:"flex",alignItems:"center",gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,display:"flex",alignItems:"center",gap:4}}>📄 PDF</button></div>
           :<div data-toolbar style={{display:"flex",alignItems:"center",gap:6,paddingBottom:10,flexWrap:"wrap"}}>
-            {["Main table","Kanban","Calendar","Workload","Time","Dashboard","Gantt"].map(v=>(<button key={v} onClick={()=>setActiveView(v)} style={{padding:"5px 12px",borderRadius:6,border:activeView===v?"none":"1px solid "+T.border,background:activeView===v?T.card:"transparent",cursor:"pointer",fontSize:13,fontWeight:activeView===v?600:400,color:activeView===v?T.text:T.textSoft,boxShadow:activeView===v?"0 1px 3px rgba(0,0,0,.08)":"none"}}>{v}</button>))}
+            <div style={{position:"relative"}}><button onClick={()=>setViewDropOpen(o=>!o)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:13,fontWeight:600,color:T.text,display:"flex",alignItems:"center",gap:6}}>{activeView} <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="#999" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
+              {viewDropOpen&&<><div style={{position:"fixed",inset:0,zIndex:9}} onClick={()=>setViewDropOpen(false)}/><div data-popup style={{position:"absolute",top:"calc(100% + 4px)",left:0,background:T.card,border:"1px solid "+T.border,borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,.15)",width:160,zIndex:10,padding:4}}>
+                {["Main table","Kanban","Calendar","Workload","Time","Dashboard","Gantt"].map(v=>(<div key={v} onClick={()=>{setActiveView(v);setViewDropOpen(false);}} style={{padding:"7px 12px",fontSize:13,borderRadius:4,cursor:"pointer",fontWeight:activeView===v?600:400,color:activeView===v?"#0073ea":T.text,background:activeView===v?(isDark?"#1a3a5c":"#e6f0ff"):"transparent"}} {...hov()}>{v}</div>))}
+              </div></>}
+            </div>
             <button disabled={boardReadonly} onClick={()=>addRow(board?.groups?.[0]?.id)} style={{padding:"5px 14px",borderRadius:"6px 0 0 6px",border:"none",background:boardReadonly?"#ccc":"#0073ea",color:"#fff",cursor:boardReadonly?"default":"pointer",fontSize:13,fontWeight:600}}>+ Item</button>
             <div style={{position:"relative"}}><button disabled={boardReadonly} onClick={()=>setTplMenuOpen(o=>!o)} style={{padding:"5px 8px",borderRadius:"0 6px 6px 0",border:"none",borderLeft:"1px solid rgba(255,255,255,.3)",background:boardReadonly?"#ccc":"#0073ea",color:"#fff",cursor:boardReadonly?"default":"pointer",fontSize:11}}>▾</button>
               {tplMenuOpen&&<div data-popup style={{position:"absolute",top:"calc(100% + 6px)",left:0,background:V.card,border:"1px solid var(--sl-border,#e0e0e0)",borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,.15)",width:220,zIndex:10,overflow:"hidden"}}>
@@ -2664,8 +2672,7 @@ export default function App(){
             <button disabled={boardReadonly} onClick={addGroup} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+T.border,background:T.card,cursor:boardReadonly?"default":"pointer",fontSize:13,color:boardReadonly?"#ccc":T.textSoft}}>+ Group</button>
             <div style={{position:"relative"}}><button onClick={()=>setFilterOpen(!filterOpen)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+T.border,background:filterOpen?isDark?"#1a3a5c":"#e6f0ff":T.card,cursor:"pointer",fontSize:13,color:T.textSoft,display:"flex",alignItems:"center",gap:4}}>🔽 Filter {Object.values(filters).flat().length>0&&<span style={{background:"#6c5ce7",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>{Object.values(filters).flat().length}</span>}{globalSortBy!=="Default"&&<span style={{background:"#fdab3d",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>Sort</span>}{hiddenCols.length>0&&<span style={{background:"#a25ddc",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>-{hiddenCols.length}</span>}</button>{filterOpen&&<FilterPanel filters={filters} setFilters={setFilters} people={people} statuses={statuses} priorities={priorities} allTags={allTags} onClose={()=>setFilterOpen(false)} sortBy={globalSortBy} setSortBy={setGlobalSortBy} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols}/>}</div>
             <button onClick={()=>setAutoPanel(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:13,color:T.textSoft}}>⚡ Auto {boardAutos.filter(a=>a.enabled).length>0&&<span style={{background:"#fdab3d",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{boardAutos.filter(a=>a.enabled).length}</span>}</button>
-            {!board?.isMain&&<button onClick={()=>setSyncModal(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.syncTargets?.length?"#a25ddc":T.border),background:board?.syncTargets?.length?isDark?"#2a1a3a":"#f5f3ff":T.card,cursor:"pointer",fontSize:13,color:board?.syncTargets?.length?"#a25ddc":T.textSoft}}>🔗 Sync {board?.syncTargets?.length>0&&<span style={{background:"#a25ddc",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{board.syncTargets.length}</span>}</button>}
-            {!board?.isMain&&boards.some(b=>b.isMain)&&<button onClick={syncBoardToPortfolioAction} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.linkedMainBoardId?"#0073ea":T.border),background:board?.linkedMainBoardId?isDark?"#1a3a5c":"#e6f0ff":T.card,cursor:"pointer",fontSize:13,color:board?.linkedMainBoardId?"#0073ea":T.textSoft}}>{board?.linkedMainBoardId?"📊 Synced to Portfolio":"📊 Link to Portfolio"}</button>}
+            {!board?.isMain&&<div style={{position:"relative"}}><button onClick={()=>setSyncModal(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.syncTargets?.length||board?.linkedMainBoardId?"#a25ddc":T.border),background:board?.syncTargets?.length||board?.linkedMainBoardId?isDark?"#2a1a3a":"#f5f3ff":T.card,cursor:"pointer",fontSize:13,color:board?.syncTargets?.length||board?.linkedMainBoardId?"#a25ddc":T.textSoft}}>🔗 Sync {(board?.syncTargets?.length||0)+(board?.linkedMainBoardId?1:0)>0&&<span style={{background:"#a25ddc",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{(board?.syncTargets?.length||0)+(board?.linkedMainBoardId?1:0)}</span>}</button></div>}
             <button onClick={()=>setSharePanel(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.shared?.length?"#0073ea":T.border),background:board?.shared?.length?isDark?"#1a3a5c":"#e6f0ff":T.card,cursor:"pointer",fontSize:13,color:board?.shared?.length?"#0073ea":T.textSoft}}>👥 Share {board?.shared?.length>0&&<span style={{background:"#0073ea",color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{board.shared.length}</span>}</button>
           </div>}
         </div>
@@ -2921,7 +2928,7 @@ export default function App(){
         isPinned={colCtx.colId?pinnedCols.includes(colCtx.colId):false}
         colTypes={COL_TYPES}
       />}
-      {syncModal&&board&&<SyncModal board={board} allBoards={wsBoards} onClose={()=>setSyncModal(false)} onAddSync={id=>{addSyncTarget(id);}} onRemoveSync={id=>{removeSyncTarget(id);}}/>}
+      {syncModal&&board&&<SyncModal board={board} allBoards={wsBoards} onClose={()=>setSyncModal(false)} onAddSync={id=>{addSyncTarget(id);}} onRemoveSync={id=>{removeSyncTarget(id);}} onLinkPortfolio={!board.isMain&&boards.some(b=>b.isMain)?syncBoardToPortfolioAction:null} isLinkedToPortfolio={!!board.linkedMainBoardId}/>}
       {adminOpen&&<AdminPanel teamMembers={teamMembers} setTeamMembers={setTeamMembers} currentUser={currentUser} onClose={()=>setAdminOpen(false)}/>}
       {sharePanel&&board&&<SharePanel board={board} teamMembers={teamMembers} onUpdate={newShared=>{setBoards(bs=>{const n=[...bs];const i=n.findIndex(b=>b.id===activeId);if(i<0)return bs;n[i]={...n[i],shared:newShared};return n;});}} onClose={()=>setSharePanel(false)}/>}
       {wsSharePanel&&<WsSharePanel workspace={workspaces.find(w=>w.id===activeWs)} teamMembers={teamMembers} onUpdate={newShared=>{setWorkspaces(ws=>ws.map(w=>w.id!==activeWs?w:{...w,shared:newShared}));}} onClose={()=>setWsSharePanel(false)}/>}
