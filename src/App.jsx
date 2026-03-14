@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo, memo } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo, memo, createContext, useContext } from "react";
 import { PieChart, Pie, Cell as RCell, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 
 /* ─── Export / Import Utilities (pure JS — no external deps) ─── */
@@ -133,6 +133,13 @@ function parseImportFile(file,cb){
 
 
 const uid=()=>"id_"+Math.random().toString(36).slice(2,9);
+/* Board type system — replaces isMain/isDashboard/isSummary booleans */
+const BT={TASK:"task",PORTFOLIO:"portfolio",DASH:"dashboard",SUMMARY:"summary"};
+const bType=(b)=>b?.type||(b?.isMain?BT.PORTFOLIO:b?.isDashboard?BT.DASH:b?.isSummary?BT.SUMMARY:BT.TASK);
+const isTask=(b)=>bType(b)===BT.TASK;
+const isPortfolio=(b)=>bType(b)===BT.PORTFOLIO;
+const isDash=(b)=>bType(b)===BT.DASH;
+const isSummaryB=(b)=>bType(b)===BT.SUMMARY;
 
 /* ─── SHARED HELPERS ─── */
 const useOutsideClick=(ref,onClose,active=true)=>{useEffect(()=>{if(!active)return;const h=e=>{if(ref.current&&!ref.current.contains(e.target))onClose();};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[ref,onClose,active]);};
@@ -142,12 +149,15 @@ const Initials=(name)=>name?name.split(" ").map(n=>n[0]).join("").slice(0,2).toU
 const V={card:"var(--sl-card,#fff)",text:"var(--sl-text,#333)",tSoft:"var(--sl-textSoft,#666)",tMut:"var(--sl-textMuted,#999)",tMut8:"var(--sl-textMuted,#888)",tMutC:"var(--sl-textMuted,#ccc)",bdr:"var(--sl-border,#e0e0e0)",bdrS:"var(--sl-borderSoft,#f0f0f0)",rHov:"var(--sl-rowHover,#f5f5f5)",rAlt:"var(--sl-rowAlt,#f5f6f8)",rAltF:"var(--sl-rowAlt,#f7f8fa)",inp:"var(--sl-inputBorder,#ddd)"};
 const B={bdr:"1px solid "+V.bdr,bdrS:"1px solid "+V.bdrS,inp:"1px solid "+V.inp};
 const hov=(bg=V.rHov)=>({onMouseEnter:e=>e.currentTarget.style.background=bg,onMouseLeave:e=>e.currentTarget.style.background="transparent"});
+/* ─── Shared Context (eliminates prop drilling for common values) ─── */
+const SlateCtx=createContext(null);
+const useSlate=()=>useContext(SlateCtx);
 const THEMES={
   light:{bg:"#f6f7fb",card:"#fff",text:"#333",textSoft:"#666",textMuted:"#999",border:"#e6e9ef",borderSoft:"#f0f0f0",headerBg:"#fff",headerBorder:"#e6e9ef",rowHover:"#f8faff",rowAlt:"#fafbfc",input:"#fff",inputBorder:"#e0e0e0",panelBg:"#fff",toolbarBg:"#fff"},
   dark:{bg:"#1a1a2e",card:"#22223a",text:"#e0e0e0",textSoft:"#b0b0c0",textMuted:"#707080",border:"#333350",borderSoft:"#2a2a45",headerBg:"#22223a",headerBorder:"#333350",rowHover:"#2a2a48",rowAlt:"#252540",input:"#2a2a45",inputBorder:"#444460",panelBg:"#22223a",toolbarBg:"#22223a"},
 };
 
-const APP_VERSION="2.9.1";
+const APP_VERSION="3.4.1";
 const ts=()=>new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
 const CL=["#579bfc","#00c875","#a25ddc","#fdab3d","#e2445c","#037f4c","#ff642e","#00d2d2","#bb3354","#175a63"];
 const SC={"Done":"#00c875","Working on it":"#fdab3d","Stuck":"#e2445c","Not Started":"#c4c4c4","Future steps":"#a25ddc","In Progress":"#0073ea","Waiting":"#7c5cfc","Review":"#037f4c"};
@@ -346,7 +356,7 @@ const fmtTL=(s,e)=>{if(!s&&!e)return"";const f=d=>{const p=new Date(d);return p.
 const today=()=>new Date().toISOString().split("T")[0];
 const isOverdue=(r)=>r.tlEnd&&r.status!=="Done"&&new Date(r.tlEnd)<new Date(today());
 
-const BOARD_CATS=["ACTIVE","IN PROGRESS","COMPLETED","STALLED","ON HOLD"];
+const DEF_CATS=["ACTIVE","IN PROGRESS","COMPLETED","STALLED","ON HOLD"];
 const CAT_ICONS={"ACTIVE":"🟢","IN PROGRESS":"🔵","COMPLETED":"✅","STALLED":"🟡","ON HOLD":"⏸️"};
 
 const BOARD_TEMPLATES=[
@@ -533,7 +543,16 @@ const StatusCell=({val,onChange,statuses,setStatuses})=>{
     {hov&&val==="Done"&&<div style={{position:"absolute",right:-2,top:"50%",transform:"translateY(-50%)",width:18,height:18,borderRadius:"50%",background:V.card,display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 1px 4px rgba(0,0,0,.15)",zIndex:5}}><span style={{color:"#00c875",fontSize:12,fontWeight:800}}>✓</span></div>}
   </div>,<EDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} items={statuses} cmap={SC} label="Status" onSelect={v=>onChange("status",v)} oc={setStatuses}/>]);
 };
-const Cell=memo(({col,row,onChange,onOpenUpdates,onOpenDetail,people,setPeople,statuses,setStatuses,priorities,setPriorities,allTags,setAllTags,readonly,onEditLabels})=>{
+/* Debounced input — buffers locally, commits on blur/Enter (prevents re-render per keystroke) */
+const DInput=memo(({value,onChange,style,placeholder,type,autoFocus,onFocus})=>{
+  const [local,setLocal]=useState(value||"");
+  useEffect(()=>setLocal(value||""),[value]);
+  const commit=()=>{if(local!==(value||""))onChange(local);};
+  return(<input type={type||"text"} value={local} onChange={e=>setLocal(e.target.value)} onBlur={commit} onKeyDown={e=>{if(e.key==="Enter"){commit();e.target.blur();}}} onFocus={onFocus} autoFocus={autoFocus} placeholder={placeholder} style={style}/>);
+});
+
+const Cell=memo(({col,row,onChange,onOpenUpdates,onOpenDetail,readonly,onEditLabels})=>{
+  const {people,setPeople,bStatuses:statuses,setBoardStatuses:setStatuses,bPriorities:priorities,setBoardPriorities:setPriorities,allTags,setAllTags}=useSlate()||{people:[],setPeople:()=>{},bStatuses:[],setBoardStatuses:()=>{},bPriorities:[],setBoardPriorities:()=>{},allTags:[],setAllTags:()=>{}};
   const ref=useRef(null);const [open,setOpen]=useState(false);const val=col.id==="updates"?(row.updates||[]):row[col.id];const od=isOverdue(row);
   /* READONLY: synced mirror rows */
   if(readonly&&col.type!=="updates"){
@@ -544,8 +563,8 @@ const Cell=memo(({col,row,onChange,onOpenUpdates,onOpenDetail,people,setPeople,s
     if(col.type==="timeline") return(<div style={{padding:"4px 6px",fontSize:12,color:V.tMut8,opacity:.8}}>{fmtTL(row.tlStart,row.tlEnd)||"—"} 🔒</div>);
     return(<div style={{display:"flex",alignItems:"center",width:"100%",padding:"6px 8px",fontSize:13,color:V.tMut8,opacity:.8}}><span style={{flex:1}}>{String(val||"—")}</span>{syncBadge}<span style={{fontSize:9,color:"#ccc",marginLeft:2}}>🔒</span></div>);
   }
-  if(col.type==="text") return(<div style={{display:"flex",alignItems:"center",width:"100%"}}><input value={val||""} onChange={e=>onChange(col.id,e.target.value)} style={{flex:1,border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none",color:od&&col.id==="task"?"#e2445c":"#333",fontWeight:od&&col.id==="task"?600:400}}/>{col.id==="task"&&onOpenDetail&&<span onClick={e=>{e.stopPropagation();onOpenDetail();}} style={{cursor:"pointer",fontSize:11,color:"#bbb",padding:"0 4px",flexShrink:0,opacity:.6,transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=.6} title="Open">↗</span>}</div>);
-  if(col.type==="number") return(<input type="number" value={val||""} onChange={e=>onChange(col.id,e.target.value)} style={{width:"100%",border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none"}}/>);
+  if(col.type==="text"){const subs=col.id==="task"?(row.subitems||[]):[];const subT=subs.length;const subD=subs.filter(s=>s.status==="Done").length;return(<div style={{display:"flex",alignItems:"center",width:"100%"}}><DInput value={val} onChange={v=>onChange(col.id,v)} style={{flex:1,border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none",color:od&&col.id==="task"?"#e2445c":"#333",fontWeight:od&&col.id==="task"?600:400}}/>{col.id==="task"&&subT>0&&<span title={subD+"/"+subT+" subitems done"} style={{display:"flex",alignItems:"center",gap:3,flexShrink:0,marginRight:4}}><span style={{width:24,height:4,borderRadius:2,background:"#e6e9ef",overflow:"hidden",display:"inline-block"}}><span style={{width:Math.round(subD/subT*100)+"%",height:4,borderRadius:2,background:subD===subT?"#00c875":"#0073ea",display:"block"}}/></span><span style={{fontSize:9,color:V.tMut}}>{subD}/{subT}</span></span>}{col.id==="task"&&onOpenDetail&&<span onClick={e=>{e.stopPropagation();onOpenDetail();}} style={{cursor:"pointer",fontSize:11,color:"#bbb",padding:"0 4px",flexShrink:0,opacity:.6,transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=.6} title="Open">↗</span>}</div>);}
+  if(col.type==="number") return(<DInput type="number" value={val} onChange={v=>onChange(col.id,v)} style={{width:"100%",border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none"}}/>);
   if(col.type==="timeline") return(<TimelineCell row={row} onChange={onChange}/>);
   if(col.type==="duration"){const d=calcDur(row.tlStart,row.tlEnd); return(<div style={{padding:"6px 8px",fontSize:13,color:d?"#333":"#ccc"}}>{d||"—"}</div>);}
   if(col.type==="updates"){const ct=Array.isArray(val)?val.length:0; return(<div onClick={onOpenUpdates} style={{display:"flex",alignItems:"center",justifyContent:"center",width:"100%",cursor:"pointer"}}>{ct>0?<span style={{background:"#0073ea",color:"#fff",borderRadius:12,padding:"2px 8px",fontSize:11,fontWeight:700}}>💬{ct}</span>:<span style={{color:"#ccc",fontSize:14}}>💬</span>}</div>);}
@@ -651,13 +670,21 @@ const KanbanView=memo(({statuses,allRows,onStatusChange,onOpenDetail})=>{
       onDrop={e=>{e.preventDefault();setDragOverCol(null);if(dragItem&&dragItem.status!==s){onStatusChange(dragItem.gId,dragItem.id,s);}setDragItem(null);}}>
     <div style={{padding:"10px 14px",display:"flex",alignItems:"center",gap:8}}><span style={{width:10,height:10,borderRadius:"50%",background:SC[s]||"#ccc"}}/><span style={{fontSize:13,fontWeight:700,flex:1}}>{s}</span><span style={{fontSize:11,color:V.tMut,background:"#e6e9ef",borderRadius:8,padding:"0 6px"}}>{items.length}</span></div>
     <div style={{flex:1,overflowY:"auto",padding:"0 8px 8px",minHeight:60}}>
-      {items.map(({row,gId})=>{let didDrag=false;return(<div key={row.id} draggable
+      {items.map(({row,gId})=>{let didDrag=false;const subs=row.subitems||[];const subT=subs.length;const subD=subs.filter(si=>si.status==="Done").length;const updCount=(row.updates||[]).length;const hasDue=!!row.tlEnd;const pr=row.priority&&row.priority!=="No Priority"?row.priority:null;const oi=allRows.findIndex(r=>r.row.owner===row.owner&&r.row.owner);return(<div key={row.id} draggable
         onDragStart={e=>{didDrag=true;setDragItem({id:row.id,gId,status:row.status});e.dataTransfer.effectAllowed="move";}}
         onDragEnd={()=>{setDragItem(null);setDragOverCol(null);}}
         onClick={()=>{if(!didDrag&&onOpenDetail)onOpenDetail(gId,row.id);}}
         style={{background:V.card,borderRadius:8,padding:"10px 12px",marginBottom:6,border:isOverdue(row)?"1.5px solid #e2445c":B.bdr,boxShadow:"0 1px 3px rgba(0,0,0,.04)",cursor:"grab",transition:"all .15s",opacity:dragItem?.id===row.id?0.4:1}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 3px 12px rgba(0,0,0,.1)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.04)"}>
-      <div style={{fontSize:13,fontWeight:600,marginBottom:6,color:isOverdue(row)?"#e2445c":V.text}}>{isOverdue(row)&&"⚠ "}{row.task||"Untitled"}</div>
-      <div style={{display:"flex",alignItems:"center",gap:4,flexWrap:"wrap"}}>{row.owner&&<span style={{fontSize:10,background:"#e6f0ff",color:"#0073ea",padding:"1px 6px",borderRadius:3}}>{row.owner}</span>}{row.priority&&row.priority!=="No Priority"&&<span style={{fontSize:10,padding:"1px 6px",borderRadius:3,background:PC[row.priority],color:"#fff"}}>{row.priority}</span>}{row.tlStart&&<span style={{fontSize:9,color:V.tMut8}}>{fmtTL(row.tlStart,row.tlEnd)}</span>}</div>
+        {pr&&<div style={{marginBottom:6}}><span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:PC[pr],color:"#fff",fontWeight:600}}>{pr}</span></div>}
+        <div style={{fontSize:13,fontWeight:600,marginBottom:8,color:isOverdue(row)?"#e2445c":V.text,lineHeight:1.4}}>{isOverdue(row)&&"⚠ "}{row.task||"Untitled"}</div>
+        {(row.tags||[]).length>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:8}}>{row.tags.slice(0,3).map(t=>(<span key={t} style={{fontSize:9,background:"#e6f0ff",color:"#0073ea",padding:"1px 5px",borderRadius:3}}>{t}</span>))}{row.tags.length>3&&<span style={{fontSize:9,color:V.tMut}}>+{row.tags.length-3}</span>}</div>}
+        {subT>0&&<div style={{display:"flex",alignItems:"center",gap:5,marginBottom:8}}><div style={{flex:1,height:4,borderRadius:2,background:"#e6e9ef",overflow:"hidden"}}><div style={{width:Math.round(subD/subT*100)+"%",height:4,borderRadius:2,background:subD===subT?"#00c875":"#0073ea"}}/></div><span style={{fontSize:9,color:V.tMut}}>{subD}/{subT}</span></div>}
+        <div style={{display:"flex",alignItems:"center",gap:6,marginTop:4}}>
+          {row.owner?<div title={row.owner} style={{width:22,height:22,borderRadius:"50%",background:CL[Math.abs(oi)%CL.length],color:"#fff",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700,flexShrink:0}}>{Initials(row.owner)}</div>:<div style={{width:22,height:22,borderRadius:"50%",border:"1.5px dashed #ccc",flexShrink:0}}/>}
+          <div style={{flex:1}}/>
+          {hasDue&&<span style={{fontSize:9,color:isOverdue(row)?"#e2445c":V.tMut,display:"flex",alignItems:"center",gap:2}}>{isOverdue(row)?"🔴":"📅"}{row.tlEnd?.slice(5)}</span>}
+          {updCount>0&&<span style={{fontSize:9,color:"#0073ea",display:"flex",alignItems:"center",gap:2}}>💬{updCount}</span>}
+        </div>
     </div>);})}
     {items.length===0&&<div style={{padding:"20px 8px",textAlign:"center",color:V.tMutC,fontSize:12}}>{isOver?"Drop here":"No items"}</div>}
     </div>
@@ -1197,19 +1224,20 @@ const DashboardBoard=memo(({boards})=>{
 /* ─── Executive Summary Board (lean VP view) ─── */
 const daysDiff=(d)=>{if(!d)return 999;const t=new Date(d),n=new Date();t.setHours(0,0,0,0);n.setHours(0,0,0,0);return Math.ceil((t-n)/(864e5));};
 
-const SummaryBoard=memo(({boards,boardId,onChangeSrc})=>{
+const SummaryBoard=memo(({boards,boardId,onChangeSrc,onGoToItem})=>{
   const taskBoards=boards.filter(b=>!b.isMain&&!b.isDashboard&&!b.isSummary);
   const srcId=boardId||"all";
   const srcRows=useMemo(()=>{
-    if(srcId==="all")return taskBoards.flatMap(b=>b.groups.flatMap(g=>g.rows.map(r=>({...r,_board:b.name}))));
+    if(srcId==="all")return taskBoards.flatMap(b=>b.groups.flatMap(g=>g.rows.map(r=>({...r,_board:b.name,_boardId:b.id,_gId:g.id}))));
     const b=boards.find(x=>x.id===srcId);
-    return b?b.groups.flatMap(g=>g.rows.map(r=>({...r,_board:b.name}))):[];
+    return b?b.groups.flatMap(g=>g.rows.map(r=>({...r,_board:b.name,_boardId:b.id,_gId:g.id}))):[];
   },[srcId,boards,taskBoards]);
 
   const blocked=srcRows.filter(r=>{const t=((r.task||"")+" "+(r.notes||"")).toLowerCase();return r.status==="Stuck"||t.includes("block")||t.includes("approv")||t.includes("waiting");});
   const upcoming=srcRows.filter(r=>!blocked.find(x=>x.id===r.id)&&r.status!=="Done"&&(isOverdue(r)||(r.tlEnd&&daysDiff(r.tlEnd)<=7&&daysDiff(r.tlEnd)>=0)));
   const active=srcRows.filter(r=>r.status!=="Done"&&!blocked.find(x=>x.id===r.id)&&!upcoming.find(x=>x.id===r.id));
   const doneItems=srcRows.filter(r=>r.status==="Done");
+  const [expanded,setExpanded]=useState({});
 
   const tag=(r)=>{
     if(isOverdue(r))return (<span style={{color:"#e2445c",fontSize:10,fontWeight:700}}> OVERDUE</span>);
@@ -1222,13 +1250,51 @@ const SummaryBoard=memo(({boards,boardId,onChangeSrc})=>{
       <span>{emoji}</span>{title}{items.length>0&&<span style={{fontSize:11,color:V.tMut8,fontWeight:400}}>({items.length})</span>}
     </div>
     {items.length===0?<div style={{color:"#ccc",fontSize:12,fontStyle:"italic"}}>{empty}</div>
-    :items.slice(0,8).map(r=>(<div key={r.id} style={{padding:"3px 0",fontSize:12,display:"flex",alignItems:"center",gap:4}}>
-      <span style={{color}}>•</span>
-      <span style={{fontWeight:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.task}</span>
-      {r.owner&&<span style={{color:V.tMut,fontSize:10}}>{r.owner}</span>}
-      {tag(r)}
+    :items.slice(0,12).map(r=>(<div key={r.id}>
+      <div onClick={()=>setExpanded(e=>({...e,[r.id]:!e[r.id]}))} style={{padding:"4px 0",fontSize:12,display:"flex",alignItems:"center",gap:4,cursor:"pointer",borderRadius:4}} onMouseEnter={e=>e.currentTarget.style.background=V.rHov} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+        <span style={{color,fontSize:8,transform:expanded[r.id]?"rotate(90deg)":"",transition:"transform .15s",display:"inline-block"}}>▶</span>
+        <span style={{width:8,height:8,borderRadius:"50%",background:SC[r.status]||"#ccc",flexShrink:0}}/>
+        <span style={{fontWeight:500,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.task}</span>
+        {r.owner&&<span style={{color:V.tMut,fontSize:10}}>{r.owner}</span>}
+        {tag(r)}
+      </div>
+      {expanded[r.id]&&<div style={{marginLeft:20,padding:"12px 16px",marginBottom:8,background:V.card,borderRadius:8,borderLeft:"4px solid "+color,fontSize:12,border:B.bdr,boxShadow:"0 2px 8px rgba(0,0,0,.04)"}}>
+        {/* Row 1: Status badges */}
+        <div style={{display:"flex",gap:8,marginBottom:10,flexWrap:"wrap",alignItems:"center"}}>
+          <span style={{padding:"3px 10px",borderRadius:10,background:SC[r.status]||"#ccc",color:"#fff",fontWeight:700,fontSize:11}}>{r.status}</span>
+          {r.priority&&r.priority!=="No Priority"&&<span style={{padding:"3px 10px",borderRadius:10,background:PC[r.priority]||"#ccc",color:"#fff",fontWeight:700,fontSize:11}}>{r.priority}</span>}
+          {isOverdue(r)&&<span style={{padding:"3px 10px",borderRadius:10,background:"#e2445c",color:"#fff",fontWeight:700,fontSize:11}}>⚠ OVERDUE</span>}
+          {r.completionStatus&&r.completionStatus!=="-"&&<span style={{padding:"3px 10px",borderRadius:10,background:r.completionStatus==="Done On Time"?"#00c875":"#fdab3d",color:"#fff",fontWeight:700,fontSize:11}}>{r.completionStatus}</span>}
+        </div>
+        {/* Row 2: Key fields grid */}
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"6px 20px",marginBottom:10}}>
+          {r.owner&&<div><span style={{color:V.tMut,fontSize:11}}>Owner</span><div style={{fontWeight:600,display:"flex",alignItems:"center",gap:4}}><span style={{width:18,height:18,borderRadius:"50%",background:CL[0],color:"#fff",display:"inline-flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:700}}>{Initials(r.owner)}</span>{r.owner}</div></div>}
+          {r._board&&<div><span style={{color:V.tMut,fontSize:11}}>Board</span><div style={{fontWeight:600}}>{r._board}</div></div>}
+          {r.tlStart&&<div><span style={{color:V.tMut,fontSize:11}}>Timeline</span><div style={{fontWeight:500}}>{r.tlStart}{r.tlEnd?" → "+r.tlEnd:""}{isOverdue(r)?<span style={{color:"#e2445c",marginLeft:4,fontSize:10}}>(overdue by {Math.abs(daysDiff(r.tlEnd))}d)</span>:r.tlEnd&&daysDiff(r.tlEnd)>=0&&daysDiff(r.tlEnd)<=7?<span style={{color:"#fdab3d",marginLeft:4,fontSize:10}}>({daysDiff(r.tlEnd)}d left)</span>:null}</div></div>}
+          {r.completionDate&&<div><span style={{color:V.tMut,fontSize:11}}>Completed</span><div style={{fontWeight:500}}>{r.completionDate}</div></div>}
+          {r.plannedEffort&&<div><span style={{color:V.tMut,fontSize:11}}>Planned Effort</span><div style={{fontWeight:500}}>{r.plannedEffort}</div></div>}
+          {r.effortSpent&&<div><span style={{color:V.tMut,fontSize:11}}>Effort Spent</span><div style={{fontWeight:500}}>{r.effortSpent}</div></div>}
+          {r.dependentOn&&<div><span style={{color:V.tMut,fontSize:11}}>Depends On</span><div style={{fontWeight:500,color:"#a25ddc"}}>{r.dependentOn}</div></div>}
+        </div>
+        {/* Tags */}
+        {(r.tags||[]).length>0&&<div style={{marginBottom:8,display:"flex",gap:4,flexWrap:"wrap"}}>{r.tags.map(t=>(<span key={t} style={{background:"#e6f0ff",color:"#0073ea",padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600}}>{t}</span>))}</div>}
+        {/* Subitems progress */}
+        {(r.subitems||[]).length>0&&<div style={{marginBottom:8,padding:"8px 10px",background:V.rAlt,borderRadius:6}}>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}><b style={{fontSize:11}}>Subitems</b><span style={{fontSize:10,color:V.tMut}}>{r.subitems.filter(s=>s.status==="Done").length}/{r.subitems.length} done</span></div>
+          <div style={{display:"flex",height:5,borderRadius:3,overflow:"hidden",background:"#e6e9ef",marginBottom:6}}><div style={{width:Math.round(r.subitems.filter(s=>s.status==="Done").length/r.subitems.length*100)+"%",background:"#00c875",borderRadius:3}}/></div>
+          {r.subitems.map(si=>(<div key={si.id} style={{display:"flex",alignItems:"center",gap:6,padding:"2px 0",fontSize:11}}><span style={{width:6,height:6,borderRadius:"50%",background:SC[si.status]||"#ccc",flexShrink:0}}/><span style={{flex:1,textDecoration:si.status==="Done"?"line-through":"none",color:si.status==="Done"?V.tMut:V.text}}>{si.task||"Untitled"}</span>{si.owner&&<span style={{color:V.tMut,fontSize:10}}>{si.owner}</span>}<span style={{fontSize:9,padding:"1px 5px",borderRadius:3,background:SC[si.status]||"#ccc",color:"#fff"}}>{si.status}</span></div>))}
+        </div>}
+        {/* Notes */}
+        {r.notes&&<div style={{marginBottom:8,padding:"8px 10px",background:V.rAlt,borderRadius:6}}><div style={{fontSize:11,fontWeight:700,color:V.tMut,marginBottom:3}}>Notes</div><div style={{color:V.tSoft,lineHeight:1.5}}>{r.notes.slice(0,250)}{r.notes.length>250&&"..."}</div></div>}
+        {/* Latest updates */}
+        {(r.updates||[]).length>0&&<div style={{marginBottom:8,padding:"8px 10px",background:V.rAlt,borderRadius:6}}><div style={{fontSize:11,fontWeight:700,color:V.tMut,marginBottom:4}}>Latest Updates</div>{r.updates.slice(-3).reverse().map(u=>(<div key={u.id} style={{padding:"3px 0",borderBottom:B.bdrS,fontSize:11}}><span style={{fontWeight:600,color:"#0073ea"}}>{u.author}</span> <span style={{color:V.tMut}}>{u.time}</span><div style={{color:V.tSoft,marginTop:1}}>{u.text.slice(0,100)}{u.text.length>100&&"..."}</div></div>))}</div>}
+        {/* Files count */}
+        {(r.files||[]).length>0&&<div style={{marginBottom:8,fontSize:11,color:V.tSoft}}>📎 {r.files.length} file{r.files.length>1?"s":""} attached</div>}
+        {/* Action button */}
+        {onGoToItem&&<button onClick={()=>onGoToItem(r._boardId,r._gId,r.id)} style={{marginTop:2,padding:"6px 16px",border:"none",borderRadius:6,background:"#0073ea",color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:6}}>↗ Open in board</button>}
+      </div>}
     </div>))}
-    {items.length>8&&<div style={{fontSize:10,color:"#aaa"}}>+{items.length-8} more</div>}
+    {items.length>12&&<div style={{fontSize:10,color:"#aaa"}}>+{items.length-12} more</div>}
   </div>);
 
   return(<div style={{padding:"4px 0",maxWidth:700}}>
@@ -1246,7 +1312,8 @@ const SummaryBoard=memo(({boards,boardId,onChangeSrc})=>{
   </div>);
 });
 
-const DetailPanel=({row,gId,onUpdate,onAddUpdate,onClose,people,statuses,priorities})=>{
+const DetailPanel=({row,gId,onUpdate,onAddUpdate,onClose})=>{
+  const ctx=useSlate()||{};const people=ctx.people||[];const statuses=ctx.bStatuses||[];const priorities=ctx.bPriorities||[];
   const [tab,setTab]=useState("details");
   const fileRef=useRef(null);
   const handleFileUpload=(e)=>{
@@ -1346,7 +1413,7 @@ const ActivityPanel=({boards,onClose})=>{
   </SidePanel>);
 };
 
-const ColCtxMenu=({pos,col,onClose,onSort,onAddCol,onRename,onHide,onDelete,colTypes})=>{
+const ColCtxMenu=({pos,col,onClose,onSort,onAddCol,onRename,onHide,onDelete,onPin,isPinned,colTypes})=>{
   const ref=useRef(null);const [addSub,setAddSub]=useState(col?null:"right");
   useEffect(()=>{const h=e=>{if(!ref.current?.contains(e.target))onClose();};document.addEventListener("mousedown",h);return()=>document.removeEventListener("mousedown",h);},[onClose]);
   return(<div ref={ref} style={{position:"fixed",top:pos.y,left:pos.x,zIndex:100002,background:V.card,border:B.bdr,borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,.18)",padding:6,minWidth:200}}>
@@ -1356,6 +1423,7 @@ const ColCtxMenu=({pos,col,onClose,onSort,onAddCol,onRename,onHide,onDelete,colT
         {icon:"↑",label:"Sort ascending",fn:()=>{onSort("asc");onClose();}},
         {icon:"↓",label:"Sort descending",fn:()=>{onSort("desc");onClose();}},
         {divider:true},
+        {icon:isPinned?"📌":"📍",label:isPinned?"Unpin column":"Pin column",fn:()=>{onPin();onClose();}},
         {icon:"✎",label:"Rename column",fn:()=>{onRename();onClose();}},
         {icon:"👁",label:"Hide column",fn:()=>{onHide();onClose();}},
         {divider:true},
@@ -1422,7 +1490,7 @@ const ConfirmModal=memo(({message,onConfirm,onCancel})=>(<div style={{position:"
   </div>
 </div>));
 
-const TemplateModal=memo(({onSelect,onClose,boards,mainBoards})=>{
+const TemplateModal=memo(({onSelect,onClose,boards,mainBoards,boardCats})=>{
   const [mode,setMode]=useState("template");const [name,setName]=useState("");const [linkTo,setLinkTo]=useState("");const [linkItem,setLinkItem]=useState("");const [folder,setFolder]=useState("ACTIVE");const [icon,setIcon]=useState("📋");const [iconOpen,setIconOpen]=useState(false);
   const mbs=(mainBoards||boards.filter(b=>b.isMain));
   const items=linkTo?((mbs.find(b=>b.id===linkTo)||{groups:[]}).groups.flatMap(g=>g.rows)):[];
@@ -1453,7 +1521,7 @@ const TemplateModal=memo(({onSelect,onClose,boards,mainBoards})=>{
       </div>
     </div>
     <div style={{marginBottom:12}}><label style={{fontSize:12,color:V.tSoft,fontWeight:600,display:"block",marginBottom:4}}>Board name</label><input autoFocus value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Sprint Board, Phase 2 Rollout" style={{width:"100%",padding:"8px 12px",border:B.bdr,borderRadius:6,fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
-    <div style={{marginBottom:12}}><label style={{fontSize:12,color:V.tSoft,fontWeight:600,display:"block",marginBottom:4}}>Folder</label><select value={folder} onChange={e=>setFolder(e.target.value)} style={{width:"100%",padding:"7px 10px",border:B.bdr,borderRadius:6,fontSize:13}}>{BOARD_CATS.map(c=><option key={c}>{c}</option>)}</select></div>
+    <div style={{marginBottom:12}}><label style={{fontSize:12,color:V.tSoft,fontWeight:600,display:"block",marginBottom:4}}>Folder</label><select value={folder} onChange={e=>setFolder(e.target.value)} style={{width:"100%",padding:"7px 10px",border:B.bdr,borderRadius:6,fontSize:13}}>{boardCats.map(c=><option key={c}>{c}</option>)}</select></div>
     {mbs.length>0&&<div style={{background:"#f8f5ff",borderRadius:8,padding:14,border:"1px solid #e0d8ff",marginBottom:12}}>
       <label style={{fontSize:12,color:"#6c5ce7",fontWeight:700,display:"block",marginBottom:6}}>🔗 Link to Portfolio Board</label>
       <select value={linkTo} onChange={e=>{setLinkTo(e.target.value);setLinkItem("");}} style={{width:"100%",padding:"6px 10px",border:B.bdr,borderRadius:6,fontSize:13,marginBottom:8}}>
@@ -1663,7 +1731,7 @@ const saveAuth=(a)=>{try{if(a)localStorage.setItem("slate_auth",JSON.stringify(a
 
 /* ─── localStorage persistence ─── */
 const LS_KEY="slate_app_data";
-const LS_VER=2; /* bump to force reset on breaking schema changes */
+const LS_VER=3; /* bump to force reset on breaking schema changes */
 const lsLoad=()=>{try{const raw=localStorage.getItem(LS_KEY);if(!raw)return null;const d=JSON.parse(raw);if(d._v!==LS_VER)return null;return d;}catch(e){return null;}};
 const lsSave=(data)=>{try{localStorage.setItem(LS_KEY,JSON.stringify({...data,_v:LS_VER,_t:Date.now()}));}catch(e){}};
 
@@ -1722,12 +1790,18 @@ const AuthScreen=({onAuth})=>{
 
   const ssoBtn=(icon,label,provider,bg)=>(<button onClick={()=>doSSO(provider)} disabled={loading} style={{flex:1,padding:"10px 12px",border:B.bdr,borderRadius:8,background:bg||"#fff",cursor:"pointer",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:8,color:bg?"#fff":"#333",transition:"all .12s"}} onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,.1)";}} onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";}}>{icon}{label}</button>);
 
-  return(<div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#f0eeff 0%,#e8f4fd 50%,#f0fffe 100%)",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
-    <div style={{width:420,background:V.card,borderRadius:16,boxShadow:"0 20px 60px rgba(108,92,231,.12)",overflow:"hidden"}}>
-      <div style={{padding:"32px 32px 20px",textAlign:"center",background:"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,marginBottom:8}}><Logo size={36}/><span style={{fontSize:26,fontWeight:800,letterSpacing:1}}>slate</span></div>
-        <div style={{fontSize:13,opacity:.8}}>Project Management for Teams</div>
-      </div>
+  return(<div style={{minHeight:"100vh",display:"flex",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
+    <div style={{flex:"0 0 420px",background:"linear-gradient(135deg,#6c5ce7 0%,#0984e3 50%,#00b894 100%)",color:"#fff",display:"flex",flexDirection:"column",justifyContent:"center",padding:"60px 48px",position:"relative",overflow:"hidden"}}>
+      <div style={{position:"absolute",top:-60,right:-60,width:200,height:200,borderRadius:"50%",background:"rgba(255,255,255,.06)"}}/>
+      <div style={{position:"absolute",bottom:-40,left:-40,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
+      <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:32}}><Logo size={42}/><span style={{fontSize:30,fontWeight:900,letterSpacing:1}}>slate</span></div>
+      <div style={{fontSize:22,fontWeight:700,lineHeight:1.4,marginBottom:16}}>Project management<br/>built for speed.</div>
+      <div style={{fontSize:14,opacity:.75,lineHeight:1.6,marginBottom:32}}>Boards, timelines, automations, and real-time sync — everything your team needs in one place.</div>
+      {[["📋","Kanban, Gantt, Calendar & 4 more views"],["⚡","Automations that save hours every week"],["📊","Portfolio sync across all your projects"],["🔒","Role-based sharing & permissions"]].map(([i,t])=>(<div key={t} style={{display:"flex",alignItems:"center",gap:10,marginBottom:12,fontSize:13,opacity:.85}}><span style={{fontSize:16}}>{i}</span>{t}</div>))}
+      <div style={{marginTop:32,fontSize:11,opacity:.4}}>v{APP_VERSION}</div>
+    </div>
+    <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"center",background:"linear-gradient(135deg,#f0eeff 0%,#e8f4fd 50%,#f0fffe 100%)",padding:"40px 20px"}}>
+    <div style={{width:400}}>
 
       <div style={{padding:"24px 32px 32px"}}>
         {mode!=="verify"&&<div style={{display:"flex",marginBottom:20,background:V.rAlt,borderRadius:8,padding:3}}>
@@ -1779,7 +1853,7 @@ const AuthScreen=({onAuth})=>{
         </div>}
       </div>
     </div>
-    <div style={{textAlign:"center",marginTop:12,fontSize:10,color:"rgba(0,0,0,.35)"}}>v{APP_VERSION}</div>
+    </div>
   </div>);
 };
 
@@ -1883,17 +1957,20 @@ const rowTint=(row,dark)=>{if(row.status==="Done")return dark?"#1a2e1a":"#f0fff4
 export default function App(){
   const _ls=useRef(lsLoad());const _saved=_ls.current;
   const [boards,setBoards]=useState(()=>_saved?.boards||IBOARDS);const [activeId,setActiveId]=useState(()=>_saved?.activeId||"b_portfolio");
-  const undoRef=useRef([]);const UNDO_MAX=40;
-  const snap=useCallback(()=>{setBoards(cur=>{undoRef.current=[...undoRef.current.slice(-(UNDO_MAX-1)),cur];return cur;});},[]);
-  const undo=useCallback(()=>{if(!undoRef.current.length)return;const prev=undoRef.current[undoRef.current.length-1];undoRef.current=undoRef.current.slice(0,-1);setBoards(prev);setToast("↩ Undo successful");},[]);
+  const undoRef=useRef([]);const redoRef=useRef([]);const UNDO_MAX=40;
+  const snap=useCallback((desc)=>{setBoards(cur=>{undoRef.current=[...undoRef.current.slice(-(UNDO_MAX-1)),{boards:cur,desc:desc||""}];redoRef.current=[];return cur;});},[]);
+  const undo=useCallback(()=>{if(!undoRef.current.length)return;const prev=undoRef.current[undoRef.current.length-1];undoRef.current=undoRef.current.slice(0,-1);setBoards(cur=>{redoRef.current=[...redoRef.current,{boards:cur,desc:"redo"}];return prev.boards||prev;});setToast("↩ Undone"+(prev.desc?" — "+prev.desc:"")+(undoRef.current.length?" ("+undoRef.current.length+" left)":""));},[]);
+  const redo=useCallback(()=>{if(!redoRef.current.length)return;const next=redoRef.current[redoRef.current.length-1];redoRef.current=redoRef.current.slice(0,-1);setBoards(cur=>{undoRef.current=[...undoRef.current,{boards:cur,desc:"undo"}];return next.boards||next;});setToast("↪ Redone"+(redoRef.current.length?" ("+redoRef.current.length+" left)":""));},[]);
   /* Keyboard shortcuts — uses refs to avoid dependency ordering issues */
   const kbRef=useRef({});
   useEffect(()=>{const h=e=>{
     const mod=e.ctrlKey||e.metaKey;const tag=e.target?.tagName;const isInput=tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT";
     const kb=kbRef.current;
     if(mod&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo();return;}
+    if((mod&&e.key==="y")||(mod&&e.key==="z"&&e.shiftKey)){e.preventDefault();redo();return;}
     if(mod&&e.key==="d"&&kb.selCount>0){e.preventDefault();kb.bulkDuplicate?.();return;}
     if(mod&&e.key==="f"){e.preventDefault();setSearchOpen(true);setTimeout(()=>{const el=document.querySelector('[data-search-input]');if(el)el.focus();},50);return;}
+    if(mod&&e.key==="k"){e.preventDefault();kb.setGlobalSearchOpen?.(true);return;}
     /* Ctrl+V — Paste from clipboard (only when not in an input) */
     if(mod&&e.key==="v"&&!isInput){e.preventDefault();kb.handlePasteImport?.();return;}
     if(mod&&e.key==="n"){e.preventDefault();kb.addRow?.();return;}
@@ -1903,21 +1980,38 @@ export default function App(){
     if(e.key==="Tab"&&isInput&&e.target.closest('[data-row-id]')){
       e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const idx=cells.indexOf(e.target);const next=e.shiftKey?idx-1:idx+1;if(next>=0&&next<cells.length){cells[next].focus();cells[next].select?.();}
     }
-  };document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[undo]);
+    /* Arrow keys — navigate between cells */
+    if((e.key==="ArrowLeft"||e.key==="ArrowRight")&&isInput&&e.target.closest('[data-row-id]')&&!e.target.value){
+      e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const idx=cells.indexOf(e.target);const next=e.key==="ArrowRight"?idx+1:idx-1;if(next>=0&&next<cells.length){cells[next].focus();cells[next].select?.();}
+    }
+    if((e.key==="ArrowUp"||e.key==="ArrowDown")&&isInput&&e.target.closest('[data-row-id]')){
+      e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const colIdx=cells.indexOf(e.target);const allRows=[...document.querySelectorAll('[data-row-id]')];const rowIdx=allRows.indexOf(row);const targetRow=allRows[e.key==="ArrowDown"?rowIdx+1:rowIdx-1];if(targetRow){const targetCells=[...targetRow.querySelectorAll('input:not([type="checkbox"]),select,textarea')];if(targetCells[colIdx]){targetCells[colIdx].focus();targetCells[colIdx].select?.();}}
+    }
+  };document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[undo,redo]);
   const [workspaces,setWorkspaces]=useState(()=>_saved?.workspaces||INIT_WS);const [activeWs,setActiveWs]=useState(()=>_saved?.activeWs||"ws_it");const [wsPickerOpen,setWsPickerOpen]=useState(false);
   const [catCol,setCatCol]=useState(()=>_saved?.catCol||{"ACTIVE":false,"IN PROGRESS":false,"COMPLETED":true,"STALLED":true,"ON HOLD":true});
+  const [boardCats,setBoardCats]=useState(()=>_saved?.boardCats||DEF_CATS);
+  const [newFolderOpen,setNewFolderOpen]=useState(false);const [newFolderName,setNewFolderName]=useState("");
+  const [rnFolder,setRnFolder]=useState(null);const [rnFolderVal,setRnFolderVal]=useState("");
+  const addFolder=(name)=>{if(!name.trim()||boardCats.includes(name.trim().toUpperCase()))return;const n=name.trim().toUpperCase();setBoardCats(c=>[...c,n]);setCatCol(cc=>({...cc,[n]:false}));setNewFolderOpen(false);setNewFolderName("");};
+  const renameFolder=(oldName,newName)=>{if(!newName.trim()||boardCats.includes(newName.trim().toUpperCase()))return;const n=newName.trim().toUpperCase();setBoardCats(c=>c.map(x=>x===oldName?n:x));setCatCol(cc=>{const ncc={...cc};ncc[n]=ncc[oldName];delete ncc[oldName];return ncc;});setBoards(bs=>bs.map(b=>b.cat===oldName?{...b,cat:n}:b));};
+  const deleteFolder=(name)=>{if(boardCats.length<=1){setToast("⚠ Can't delete the last folder");return;}
+    const target=boardCats.find(c=>c!==name)||boardCats[0];
+    setBoardCats(c=>c.filter(x=>x!==name));
+    setBoards(bs=>bs.map(b=>b.cat===name?{...b,cat:target}:b));
+    setCatCol(cc=>{const ncc={...cc};delete ncc[name];return ncc;});
+    setToast("🗑 Deleted folder \""+name+"\" — boards moved to "+target);
+  };
   const [people,setPeople]=useState(()=>_saved?.people||PEOPLE);const [statuses,setStatuses]=useState(()=>_saved?.statuses||STATS);const [priorities,setPriorities]=useState(()=>_saved?.priorities||PRIS);const [allTags,setAllTags]=useState(()=>_saved?.allTags||TAGS);
   const [autos,setAutos]=useState(()=>{if(_saved?.autos)return _saved.autos;const a={};IBOARDS.forEach(b=>{a[b.id]=[...DEF_AUTOS];});return a;});
   const [autoPanel,setAutoPanel]=useState(false);
   const [activeView,setActiveView]=useState(()=>_saved?.activeView||"Main table");
   const [dragRow,setDragRow]=useState(null);const [dragGroup,setDragGroup]=useState(null);const [dragBoardId,setDragBoardId]=useState(null);const [dragOverCat,setDragOverCat]=useState(null);
-  const [sideCol,setSideCol]=useState(false);const [rnBoard,setRnBoard]=useState(null);const [rnVal,setRnVal]=useState("");const [editBN,setEditBN]=useState(null);
+  const [sideCol,setSideCol]=useState(false);const [sidebarW,setSidebarW]=useState(()=>_saved?.sidebarW||260);const [rnBoard,setRnBoard]=useState(null);const [rnVal,setRnVal]=useState("");const [editBN,setEditBN]=useState(null);
   const [favorites,setFavorites]=useState(()=>_saved?.favorites||[]);
   const toggleFav=useCallback((bId)=>setFavorites(f=>f.includes(bId)?f.filter(x=>x!==bId):[...f,bId]),[]);
   const [sideSearch,setSideSearch]=useState("");
-  const [recentBoards,setRecentBoards]=useState(()=>_saved?.recentBoards||[]);
   const [favCollapsed,setFavCollapsed]=useState(false);
-  const [recentCollapsed,setRecentCollapsed]=useState(false);
   const [editDesc,setEditDesc]=useState(false);const [descVal,setDescVal]=useState("");
   const [search,setSearch]=useState("");const [searchOpen,setSearchOpen]=useState(false);
   const [historyOpen,setHistoryOpen]=useState(false);const [histFilter,setHistFilter]=useState("all");const [updPanel,setUpdPanel]=useState(null);const [detailPanel,setDetailPanel]=useState(null);
@@ -1929,6 +2023,7 @@ export default function App(){
   const [notifsOpen,setNotifsOpen]=useState(false);const [notifs,setNotifs]=useState(NOTIFS);
   const [activityOpen,setActivityOpen]=useState(false);const [templateModal,setTemplateModal]=useState(false);const [toast,setToast]=useState(null);const [confirmDel,setConfirmDel]=useState(null);
   const [shortcutsOpen,setShortcutsOpen]=useState(false);
+  const [globalSearchOpen,setGlobalSearchOpen]=useState(false);const [globalSearchQ,setGlobalSearchQ]=useState("");
   const [itemTemplates,setItemTemplates]=useState(()=>_saved?.itemTemplates||[
     {id:"tpl_standup",name:"Weekly Standup",config:{task:"Weekly Standup",status:"Not Started",priority:"Medium",tags:["Review"]}},
     {id:"tpl_bug",name:"Bug Report",config:{task:"Bug — ",status:"Not Started",priority:"High",tags:["Bug"]}},
@@ -1942,8 +2037,29 @@ export default function App(){
   const [saveFilterOpen,setSaveFilterOpen]=useState(false);
   const [newFilterName,setNewFilterName]=useState("");
   const [resizing,setResizing]=useState(null);const [colCtx,setColCtx]=useState(null);const [syncModal,setSyncModal]=useState(false);const [dragOverBoardId,setDragOverBoardId]=useState(null);const [rnColId,setRnColId]=useState(null);const [rnColVal,setRnColVal]=useState("");const [headerIconOpen,setHeaderIconOpen]=useState(false);
+  const [pinnedCols,setPinnedCols]=useState(()=>_saved?.pinnedCols||["task"]);
+  const togglePin=(colId)=>setPinnedCols(p=>p.includes(colId)?p.filter(x=>x!==colId):[...p,colId]);
   const [dragCol,setDragCol]=useState(null);const [dragOverCol,setDragOverCol]=useState(null);
   const [ioMenuOpen,setIoMenuOpen]=useState(false);const ioRef=useRef(null);const importRef=useRef(null);const contentRef=useRef(null);
+  /* Bulk paste: paste multi-line text into consecutive cells downward */
+  useEffect(()=>{const h=(e)=>{
+    const el=e.target;if(!el||!el.closest?.('[data-row-id]'))return;
+    const text=e.clipboardData?.getData('text');if(!text||!text.includes('\n'))return;
+    e.preventDefault();
+    const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
+    const row=el.closest('[data-row-id]');const allRows=[...document.querySelectorAll('[data-row-id]')];
+    const rowIdx=allRows.indexOf(row);
+    const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];
+    const colIdx=cells.indexOf(el);
+    lines.forEach((line,i)=>{
+      const targetRow=allRows[rowIdx+i];if(!targetRow)return;
+      const targetCells=[...targetRow.querySelectorAll('input:not([type="checkbox"]),select,textarea')];
+      const targetCell=targetCells[colIdx];if(!targetCell)return;
+      const nativeSet=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value')?.set;
+      if(nativeSet){nativeSet.call(targetCell,line);targetCell.dispatchEvent(new Event('input',{bubbles:true}));targetCell.dispatchEvent(new Event('change',{bubbles:true}));}
+    });
+    setToast("📋 Pasted "+lines.length+" values downward");
+  };document.addEventListener('paste',h);return()=>document.removeEventListener('paste',h);},[]);
   /* ─── User identity & admin ─── */
   const [authedUser,setAuthedUser]=useState(()=>getAuth());
   const [currentUser,setCurrentUser]=useState(()=>{const a=getAuth();return a||{id:"u_guest",name:"Guest",email:"",role:"Viewer",color:"#c4c4c4",notifs:true,compact:false,darkMode:false,statusMsg:""};});
@@ -1951,23 +2067,25 @@ export default function App(){
   useEffect(()=>{try{localStorage.setItem("slate_user",JSON.stringify(currentUser));}catch(e){}},[currentUser]);
   const onAuth=(u)=>{setAuthedUser(u);setCurrentUser(u);};
   const onLogout=()=>{saveAuth(null);setAuthedUser(null);setUserMenuOpen(false);};
+  /* Warn before leaving with unsaved changes */
+  useEffect(()=>{const h=e=>{if(saveTimer.current){e.preventDefault();e.returnValue="";}};window.addEventListener("beforeunload",h);return()=>window.removeEventListener("beforeunload",h);},[]);
   const [teamMembers,setTeamMembers]=useState(()=>_saved?.teamMembers||DEFAULT_TEAM);
   /* ─── Auto-save to localStorage (debounced 800ms) ─── */
   const saveTimer=useRef(null);
   useEffect(()=>{
     if(saveTimer.current)clearTimeout(saveTimer.current);
     saveTimer.current=setTimeout(()=>{
-      lsSave({boards,activeId,workspaces,activeWs,catCol,people,statuses,priorities,allTags,autos,activeView,favorites,recentBoards,hiddenCols,itemTemplates,savedFilters,teamMembers});
+      lsSave({boards,activeId,workspaces,activeWs,catCol,boardCats,people,statuses,priorities,allTags,autos,activeView,favorites,hiddenCols,itemTemplates,savedFilters,teamMembers,sidebarW,pinnedCols});
+      saveTimer.current=null;
     },800);
     return()=>{if(saveTimer.current)clearTimeout(saveTimer.current);};
-  },[boards,activeId,workspaces,activeWs,catCol,people,statuses,priorities,allTags,autos,activeView,favorites,recentBoards,hiddenCols,itemTemplates,savedFilters,teamMembers]);
+  },[boards,activeId,workspaces,activeWs,catCol,boardCats,people,statuses,priorities,allTags,autos,activeView,favorites,hiddenCols,itemTemplates,savedFilters,teamMembers,sidebarW,pinnedCols]);
   const [userMenuOpen,setUserMenuOpen]=useState(false);
   const [adminOpen,setAdminOpen]=useState(false);
   const [sharePanel,setSharePanel]=useState(false);
   const [wsSharePanel,setWsSharePanel]=useState(false);
   const userMenuRef=useRef(null);
   useEffect(()=>setHeaderIconOpen(false),[activeId]);
-  useEffect(()=>{setRecentBoards(prev=>{const filtered=prev.filter(id=>id!==activeId);return[activeId,...filtered].slice(0,5);});},[activeId]);
   /* Due date alerts on board open */
   useEffect(()=>{
     if(!board||board.isDashboard||board.isSummary)return;
@@ -2001,7 +2119,7 @@ export default function App(){
   const logSync=(bId,a,d,c,src)=>{log(a,d,c,bId,src);if(src&&src.includes("Auto-synced"))setToast(d);};
   const setB=(idx,fn,quiet)=>{if(!quiet)snap();setBoards(bs=>{const n=[...bs];n[idx]=fn(n[idx]);return n;});};
   /* Helper: update active board with optional auto-sync */
-  const updActive=useCallback((fn,doSync,quiet)=>{if(!quiet)snap();setBoards(bs=>{let n=[...bs];const i=n.findIndex(b=>b.id===activeId);if(i<0)return bs;n[i]=fn(n[i]);if(doSync&&!n[i].isMain&&(n[i].linkedMainBoardId||n[i].syncTargets?.length))n=syncBoards(n,activeId,logSync);return n;});},[activeId,snap]);
+  const updActive=useCallback((fn,doSync,quiet,desc)=>{if(!quiet)snap(desc);setBoards(bs=>{let n=[...bs];const i=n.findIndex(b=>b.id===activeId);if(i<0)return bs;n[i]=fn(n[i]);if(doSync&&!n[i].isMain&&(n[i].linkedMainBoardId||n[i].syncTargets?.length))n=syncBoards(n,activeId,logSync);return n;});},[activeId,snap]);
   /* _mapGR/mapAllR moved to module level as _mapGR/_mapAllR */
 
 
@@ -2093,9 +2211,10 @@ export default function App(){
     const needsSync=f==="status"||f==="weeklyUpdate"||f==="weeklyStatus";
     const quiet=f==="checked";
     const actEntry=(!quiet&&_TRACK_FIELDS.has(f)&&row)?{id:uid(),field:f,from:String(Array.isArray(row[f])?row[f].join(","):(row[f]||"-")),to:String(Array.isArray(v)?v.join(","):(v||"-")),by:currentUser.name,time:ts()}:null;
+    const _desc=quiet?"":((row?.task||"")+" — "+f+": "+(v||"").toString().slice(0,30));
     updActive(b=>applyBulk
       ?_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,[f]:v,...(actEntry?{activity:[...(r.activity||[]),actEntry]}:{})}:r))
-      :_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,[f]:v,...(actEntry?{activity:[...(r.activity||[]),actEntry]}:{})})),needsSync,quiet);
+      :_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,[f]:v,...(actEntry?{activity:[...(r.activity||[]),actEntry]}:{})})),needsSync,quiet,_desc);
     if(applyBulk){log("Bulk "+f,selCount+" items → "+String(v),"#0073ea");}
     else if(f==="status"){log("Status","\""+((row?.task)||"")+"\" → "+v,"#00c875");runAutos(f,v,row,gId);}
     else if(f==="owner"||f==="task"){runAutos(f,v,row,gId);}
@@ -2109,9 +2228,9 @@ export default function App(){
     }
   };
   /* Sync actions */
-  const syncRowToPortfolioAction=(gId,rId)=>{snap();setBoards(bs=>syncRowToPortfolio(bs,activeId,gId,rId,logSync));setToast("📊 Row synced to portfolio");};
-  const syncBoardToPortfolioAction=()=>{snap();setBoards(bs=>syncBoardToPortfolio(bs,activeId,logSync));setToast("📊 Board linked to portfolio");};
-  const addRow=useCallback(gId=>{if(boardReadonly)return;const nr=mk({task:"New Task"});updActive(b=>_mapGR(b,gId,rs=>[...rs,nr]),true);log("Row","Added","#579bfc");runAutos("__created","",nr,gId);},[updActive,boardReadonly,runAutos]);
+  const syncRowToPortfolioAction=(gId,rId)=>{snap("Sync row to portfolio");setBoards(bs=>syncRowToPortfolio(bs,activeId,gId,rId,logSync));setToast("📊 Row synced to portfolio");};
+  const syncBoardToPortfolioAction=()=>{snap("Link board to portfolio");setBoards(bs=>syncBoardToPortfolio(bs,activeId,logSync));setToast("📊 Board linked to portfolio");};
+  const addRow=useCallback(gId=>{if(boardReadonly)return;const nr=mk({});updActive(b=>_mapGR(b,gId,rs=>[...rs,nr]),true);log("Row","Added","#579bfc");runAutos("__created","",nr,gId);setTimeout(()=>{const el=document.querySelector('[data-row-id="'+nr.id+'"] input[type="text"],[data-row-id="'+nr.id+'"] input:not([type])');if(el){el.focus();el.select();}},50);},[updActive,boardReadonly,runAutos]);
   const delRow=useCallback((gId,rId)=>{if(boardReadonly)return;updActive(b=>_mapGR(b,gId,rs=>rs.filter(r=>r.id!==rId)),true);},[updActive,boardReadonly]);
   const dupRow=(gId,rId)=>{const grp=board.groups.find(g=>g.id===gId);const row=grp?.rows.find(r=>r.id===rId);if(row){const nr={...row,id:uid(),task:row.task+" (copy)",subitems:(row.subitems||[]).map(s=>({...s,id:uid()})),updates:[]};setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:[...g.rows,nr]})}));}};
   /* --- Bulk selection helpers --- */
@@ -2126,6 +2245,8 @@ export default function App(){
   const togGroup=gId=>setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,collapsed:!g.collapsed})}),true);
   const rnGroup=(gId,n)=>setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,name:n})}));
   const delGroup=gId=>setB(bi,b=>({...b,groups:b.groups.filter(g=>g.id!==gId)}));
+  const dupGroup=(gId)=>{const grp=board?.groups.find(g=>g.id===gId);if(!grp)return;snap("Duplicate group: "+grp.name);const ng={...structuredClone(grp),id:uid(),name:grp.name+" (copy)"};ng.rows.forEach(r=>{r.id=uid();(r.subitems||[]).forEach(s=>{s.id=uid();});});setB(bi,b=>({...b,groups:[...b.groups,ng]}));setToast("⧉ Duplicated group: "+grp.name);};
+  const moveGroupToBoard=(gId,targetBoardId)=>{const grp=board?.groups.find(g=>g.id===gId);if(!grp)return;snap("Move group to another board");const ng=structuredClone(grp);ng.id=uid();ng.rows.forEach(r=>{r.id=uid();(r.subitems||[]).forEach(s=>{s.id=uid();});});setBoards(bs=>bs.map(b=>{if(b.id===activeId)return{...b,groups:b.groups.filter(g=>g.id!==gId)};if(b.id===targetBoardId)return{...b,groups:[...b.groups,ng]};return b;}));setToast("→ Moved \""+grp.name+"\" to "+boards.find(b=>b.id===targetBoardId)?.name);};
   const setCols=fn=>setB(bi,b=>({...b,columns:fn(b.columns)}));
   const reorderCol=(fromId,toId)=>{if(fromId===toId)return;setCols(c=>{const n=[...c];const fi=n.findIndex(x=>x.id===fromId);if(fi<0)return c;const[moved]=n.splice(fi,1);const ti=n.findIndex(x=>x.id===toId);if(ti<0){n.push(moved);}else{n.splice(ti,0,moved);}return n;});};
   const addColAfter=(aid,type,label)=>{const id=uid();setCols(c=>{const n=[...c];const newCol={id,name:label,type,w:type==="timeline"?180:120};if(type==="dropdown")newCol.labels=["Option 1","Option 2","Option 3"];if(aid==="__START__"){n.splice(0,0,newCol);}else if(aid){const i=n.findIndex(x=>x.id===aid);n.splice(i+1,0,newCol);}else n.push(newCol);return n;});};
@@ -2178,12 +2299,12 @@ export default function App(){
   const addSubitem=(gId,rId)=>{setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,subitems:[...(r.subitems||[]),mkSub()]})));setExpandedSub(s=>({...s,[rId]:true}));};
   const upSubitem=(gId,rId,siId,f,v)=>setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,subitems:(r.subitems||[]).map(si=>si.id!==siId?si:{...si,[f]:v})})));
   const delSubitem=(gId,rId,siId)=>setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,subitems:(r.subitems||[]).filter(si=>si.id!==siId)})));
-  const saveBN=(id,n)=>{snap();setBoards(bs=>bs.map(b=>b.id===id?{...b,name:n||b.name}:b));};
-  const saveDesc=(id,d)=>{snap();setBoards(bs=>bs.map(b=>b.id===id?{...b,desc:d}:b));};
-  const saveIcon=(id,ic)=>{snap();setBoards(bs=>bs.map(b=>b.id===id?{...b,icon:ic}:b));};
+  const saveBN=(id,n)=>{snap("Rename board");setBoards(bs=>bs.map(b=>b.id===id?{...b,name:n||b.name}:b));};
+  const saveDesc=(id,d)=>{snap("Edit description");setBoards(bs=>bs.map(b=>b.id===id?{...b,desc:d}:b));};
+  const saveIcon=(id,ic)=>{snap("Change icon");setBoards(bs=>bs.map(b=>b.id===id?{...b,icon:ic}:b));};
   const changeSummarySrc=(src)=>{setBoards(bs=>bs.map(b=>b.id===activeId?{...b,summarySrc:src}:b));};
-  const dupBoard=(bId)=>{const src=boards.find(b=>b.id===bId);if(!src)return;snap();const nb={...structuredClone(src),id:uid(),name:src.name+" (copy)"};nb.groups.forEach(g=>{g.id=uid();g.rows.forEach(r=>{r.id=uid();(r.subitems||[]).forEach(s=>{s.id=uid();});});});setBoards(bs=>[...bs,nb]);setActiveId(nb.id);};
-  const moveBoardCat=(bId,cat)=>{snap();setBoards(bs=>bs.map(b=>b.id===bId?{...b,cat}:b));};
+  const dupBoard=(bId)=>{const src=boards.find(b=>b.id===bId);if(!src)return;snap("Duplicate board: "+src.name);const nb={...structuredClone(src),id:uid(),name:src.name+" (copy)"};nb.groups.forEach(g=>{g.id=uid();g.rows.forEach(r=>{r.id=uid();(r.subitems||[]).forEach(s=>{s.id=uid();});});});setBoards(bs=>[...bs,nb]);setActiveId(nb.id);};
+  const moveBoardCat=(bId,cat)=>{snap("Move board to "+cat);setBoards(bs=>bs.map(b=>b.id===bId?{...b,cat}:b));};
   const addBoardFromTemplate=(tmpl)=>{snap();const nb={id:uid(),name:tmpl.name,desc:tmpl.isDashboard?"Cross-board analytics dashboard":tmpl.isSummary?"Executive summary — VP quick view":"",cat:tmpl.folder||"ACTIVE",wsId:activeWs,icon:tmpl.icon,isMain:false,isDashboard:!!tmpl.isDashboard,isSummary:!!tmpl.isSummary,summarySrc:"all",hist:[],columns:cloneCols(DCOLS),groups:tmpl.groups.map(g=>({id:uid(),name:g.name,color:g.color,collapsed:false,rows:[]}))};if(tmpl.linked&&tmpl.linkTo){nb.linkedMainBoardId=tmpl.linkTo;nb.linkedMainItemName=tmpl.linkItem||"";}setBoards(bs=>[...bs,nb]);setActiveId(nb.id);setTemplateModal(false);};
 
   /* ─── Import / Export handlers ─── */
@@ -2267,6 +2388,13 @@ export default function App(){
   const onResizeDblClick=(colId)=>{const defaults={task:220,owner:100,status:130,priority:130,timeline:200,tags:120,duration:90,timer:110,updates:60,weeklyStatus:260,progress:150,weeklyUpdate:230,linkedBoard:130,tltype:130,customer:130,team:110};setCols(cs=>cs.map(c=>c.id!==colId?c:{...c,w:defaults[colId]||140}));};
 
   const doSort=(gId,colId,dir)=>{if(!dir){setSortSt(s=>{const n={...s};delete n[gId];return n;});return;}setSortSt(s=>({...s,[gId]:{colId,dir}}));};
+  /* Column pin positioning */
+  const getPinStyle=(colId,colsList)=>{
+    if(!pinnedCols.includes(colId))return{};
+    let left=44;/* checkbox width */
+    for(const c of colsList){if(c.id===colId)break;if(pinnedCols.includes(c.id)||c.id==="task")left+=c.w;}
+    return{position:"sticky",left,zIndex:3,background:"inherit"};
+  };
   const processRows=useCallback((rows,gId)=>{
     const f=filters,s=search?search.toLowerCase():null,qf=quickFilter,td2=today(),userName=currentUser?.name;
     let r=rows.filter(x=>{
@@ -2311,22 +2439,39 @@ export default function App(){
   const histItems=useMemo(()=>boards.filter(b=>histFilter==="all"||b.id===histFilter).flatMap(b=>(b.hist||[]).map(h=>({...h,board:b.name,boardId:b.id}))),[boards,histFilter]);
 
   /* Sync keyboard ref with current values */
-  kbRef.current={selCount,bulkDuplicate,addRow:()=>{if(board?.groups?.[0]?.id)addRow(board.groups[0].id);},detailPanel,setDetailPanel,updPanel,setUpdPanel,sharePanel,setSharePanel,wsSharePanel,setWsSharePanel,adminOpen,setAdminOpen,historyOpen,setHistoryOpen,autoPanel,setAutoPanel,templateModal,setTemplateModal,searchOpen,filterOpen,setFilterOpen,shortcutsOpen,handlePasteImport};
+  kbRef.current={selCount,bulkDuplicate,addRow:()=>{if(board?.groups?.[0]?.id)addRow(board.groups[0].id);},detailPanel,setDetailPanel,updPanel,setUpdPanel,sharePanel,setSharePanel,wsSharePanel,setWsSharePanel,adminOpen,setAdminOpen,historyOpen,setHistoryOpen,autoPanel,setAutoPanel,templateModal,setTemplateModal,searchOpen,filterOpen,setFilterOpen,shortcutsOpen,handlePasteImport,setGlobalSearchOpen};
 
   const SyncBanner=useCallback(({icon,title,sub,pill,pillBg})=>(<div style={{background:"linear-gradient(90deg,#f0f0ff,#f0fffe)",border:"1px solid #d8d4ff",borderRadius:8,padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10,fontSize:13,flexWrap:"wrap"}}><span style={{fontWeight:600}}>{icon} {title}</span><span style={{color:V.tMut8}}>{sub}</span>{pill&&<span style={{marginLeft:"auto",background:pillBg||"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",borderRadius:20,padding:"2px 12px",fontSize:11,fontWeight:700}}>{pill}</span>}</div>),[]);
 
   const T=THEMES[currentUser.darkMode?"dark":"light"];const isDark=!!currentUser.darkMode;
 
   if(!authedUser) return (<AuthScreen onAuth={onAuth}/>);
+  const ctxVal=useMemo(()=>({people,setPeople,statuses,setStatuses:setBoardStatuses,priorities,setPriorities:setBoardPriorities,allTags,setAllTags,bStatuses,bPriorities,currentUser,isDark,T}),[people,statuses,priorities,allTags,bStatuses,bPriorities,currentUser,isDark,T]);
+  return(<SlateCtx.Provider value={ctxVal}>
 
   return(
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",height:"100vh",display:"flex",background:T.bg,color:T.text,userSelect:resizing?"none":"auto","--sl-bg":T.bg,"--sl-card":T.card,"--sl-text":T.text,"--sl-textSoft":T.textSoft,"--sl-textMuted":T.textMuted,"--sl-border":T.border,"--sl-borderSoft":T.borderSoft,"--sl-rowHover":T.rowHover,"--sl-rowAlt":T.rowAlt,"--sl-input":T.input,"--sl-inputBorder":T.inputBorder}}>
       <style>{`[data-board-item]:hover .favStar{opacity:1 !important;}
-[data-stick="0"]{position:sticky;left:0;z-index:3;background:inherit;}
-[data-stick="44"]{position:sticky;left:44px;z-index:3;background:inherit;}
+[data-stick="0"]{position:sticky;left:0;z-index:3;background:var(--sl-card,#fff);}
+[data-stick="44"]{position:sticky;left:44px;z-index:3;background:var(--sl-card,#fff);}
+[data-row-id]:nth-child(even) [data-stick],[data-group-rows]>:nth-child(even) [data-stick]{background:var(--sl-rowAlt,#fafbfc);}
+[data-row-id]:hover [data-stick],[data-group-rows]>:nth-child(even):hover [data-stick]{background:var(--sl-rowHover,#f0f5ff) !important;}
+[data-col-header] [data-stick]{background:var(--sl-rowAlt,#f5f6f8) !important;}
+[data-stick="44"]{box-shadow:2px 0 4px rgba(0,0,0,.06);}
 @keyframes rowIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
 @keyframes rowOut{from{opacity:1;max-height:60px}to{opacity:0;max-height:0;padding:0;overflow:hidden}}
 @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes viewFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+[data-view-content]{animation:viewFade .2s ease;}
+[data-group-rows]>:nth-child(even) [data-row-id],[data-group-rows]>[data-row-id]:nth-child(even){background:var(--sl-rowAlt,#fafbfc);}
+[data-group-rows]>:nth-child(even):hover [data-row-id],[data-group-rows]>[data-row-id]:nth-child(even):hover{background:var(--sl-rowHover,#f0f5ff) !important;}
+[data-col-header]{position:sticky;top:0;z-index:4;background:var(--sl-card,#fff);}
+[data-pinned]{position:sticky !important;z-index:3 !important;background:var(--sl-card,#fff) !important;}
+[data-row-id]:nth-child(even) [data-pinned],[data-group-rows]>:nth-child(even) [data-pinned]{background:var(--sl-rowAlt,#fafbfc) !important;}
+[data-row-id]:hover [data-pinned],[data-group-rows]>:nth-child(even):hover [data-pinned]{background:var(--sl-rowHover,#f0f5ff) !important;}
+[data-sidebar-section]{overflow:hidden;transition:max-height .25s ease,opacity .2s ease;}
+[data-sidebar-section][data-collapsed="true"]{max-height:0;opacity:0;}
+[data-sidebar-section][data-collapsed="false"]{max-height:2000px;opacity:1;}
 @keyframes slideUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
 @keyframes scaleIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
 @keyframes groupExpand{from{opacity:0;max-height:0;overflow:hidden}to{opacity:1;max-height:2000px}}
@@ -2350,7 +2495,7 @@ export default function App(){
   @page{margin:0.6in;size:landscape;}
 }
 `}</style>
-      <div data-sidebar style={{width:sideCol?48:260,background:"#292f4c",color:"#fff",display:"flex",flexDirection:"column",flexShrink:0,transition:"width .2s",overflow:"hidden"}}>
+      <div data-sidebar style={{width:sideCol?48:sidebarW,background:"#292f4c",color:"#fff",display:"flex",flexDirection:"column",flexShrink:0,transition:sideCol?"width .2s":"none",overflow:"hidden",position:"relative"}}>
         <div style={{padding:"14px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:"1px solid rgba(255,255,255,.1)"}}><div onClick={()=>setSideCol(!sideCol)} style={{cursor:"pointer",flexShrink:0}}><Logo size={30}/></div>{!sideCol&&<span style={{fontSize:17,fontWeight:700}}>slate</span>}</div>
         {!sideCol&&<div style={{display:"contents"}}>
           <div style={{padding:"10px 12px",borderBottom:"1px solid rgba(255,255,255,.08)"}}>
@@ -2374,17 +2519,6 @@ export default function App(){
             {/* Sidebar search */}
             <div style={{padding:"4px 10px 8px"}}><input value={sideSearch} onChange={e=>setSideSearch(e.target.value)} placeholder="🔍 Search boards..." style={{width:"100%",padding:"6px 10px",borderRadius:6,border:"1px solid rgba(255,255,255,.12)",background:"rgba(255,255,255,.06)",color:"#fff",fontSize:12,outline:"none",boxSizing:"border-box"}} onFocus={e=>e.currentTarget.style.borderColor="rgba(87,155,252,.5)"} onBlur={e=>e.currentTarget.style.borderColor="rgba(255,255,255,.12)"}/></div>
             {/* Recent boards */}
-            {!sideSearch&&recentBoards.length>1&&<div style={{marginBottom:4}}>
-              <div onClick={()=>setRecentCollapsed(c=>!c)} style={{padding:"4px 14px",display:"flex",alignItems:"center",gap:6,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.04)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <span style={{fontSize:7,transform:recentCollapsed?"":"rotate(90deg)",display:"inline-block",transition:"transform .15s",color:"rgba(255,255,255,.35)"}}>▶</span>
-                <span style={{fontSize:10,fontWeight:700,color:"rgba(255,255,255,.35)",letterSpacing:".5px",flex:1}}>RECENT</span>
-                <span style={{fontSize:10,color:"rgba(255,255,255,.2)",background:"rgba(255,255,255,.08)",borderRadius:8,padding:"0 6px"}}>{Math.min(recentBoards.length-1,3)}</span>
-              </div>
-              {!recentCollapsed&&recentBoards.slice(1,4).map(rId=>{const b=boards.find(x=>x.id===rId);if(!b)return null;return(<div key={rId} onClick={()=>setActiveId(rId)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"board",boardId:rId});}} style={{padding:"4px 10px 4px 38px",fontSize:12,cursor:"pointer",color:rId===activeId?"#fff":"rgba(255,255,255,.5)",borderRadius:4,margin:"0 6px",display:"flex",alignItems:"center",gap:6}} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.06)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
-                <span style={{fontSize:10}}>{b.icon}</span><span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.name}</span>
-              </div>);})}
-              <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"6px 14px"}}/>
-            </div>}
             {/* Favorites */}
             {favorites.length>0&&!sideSearch&&<div style={{marginBottom:6}}>
               <div onClick={()=>setFavCollapsed(c=>!c)} style={{padding:"6px 14px",display:"flex",alignItems:"center",gap:7,cursor:"pointer"}} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,.04)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
@@ -2399,18 +2533,18 @@ export default function App(){
               </div>);})}
               <div style={{height:1,background:"rgba(255,255,255,.08)",margin:"6px 14px"}}/>
             </div>}
-            {BOARD_CATS.map(cat=>{const cb=wsBoards.filter(b=>b.cat===cat&&(!sideSearch||b.name.toLowerCase().includes(sideSearch.toLowerCase())));const ic=catCol[cat];const isDragOver=dragOverCat===cat;
+            {boardCats.map(cat=>{const cb=wsBoards.filter(b=>b.cat===cat&&(!sideSearch||b.name.toLowerCase().includes(sideSearch.toLowerCase())));const ic=catCol[cat];const isDragOver=dragOverCat===cat;
               return(<div key={cat} style={{marginBottom:2}}
                 onDragOver={e=>{e.preventDefault();e.dataTransfer.dropEffect="move";setDragOverCat(cat);}}
                 onDragLeave={()=>setDragOverCat(null)}
                 onDrop={e=>{e.preventDefault();setDragOverCat(null);if(dragBoardId){moveBoardCat(dragBoardId,cat);setDragBoardId(null);}}}>
-                <div onClick={()=>setCatCol(c=>({...c,[cat]:!c[cat]}))} style={{padding:"6px 14px",display:"flex",alignItems:"center",gap:7,cursor:"pointer",background:isDragOver?"rgba(87,155,252,.2)":"transparent",borderRadius:isDragOver?4:0,transition:"background .15s"}} onMouseEnter={e=>{if(!isDragOver)e.currentTarget.style.background="rgba(255,255,255,.04)";}} onMouseLeave={e=>{if(!isDragOver)e.currentTarget.style.background="transparent";}}>
+                <div onClick={()=>setCatCol(c=>({...c,[cat]:!c[cat]}))} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"folder",folderName:cat});}} style={{padding:"6px 14px",display:"flex",alignItems:"center",gap:7,cursor:"pointer",background:isDragOver?"rgba(87,155,252,.2)":"transparent",borderRadius:isDragOver?4:0,transition:"background .15s"}} onMouseEnter={e=>{if(!isDragOver)e.currentTarget.style.background="rgba(255,255,255,.04)";}} onMouseLeave={e=>{if(!isDragOver)e.currentTarget.style.background="transparent";}}>
                   <span style={{fontSize:7,transform:ic?"":"rotate(90deg)",display:"inline-block",transition:"transform .15s",color:"rgba(255,255,255,.35)"}}>▶</span>
-                  <span style={{fontSize:11}}>{CAT_ICONS[cat]}</span><span style={{fontSize:11,fontWeight:700,color:isDragOver?"#579bfc":"rgba(255,255,255,.5)",letterSpacing:".5px",flex:1}}>{cat}</span>
+                  <span style={{fontSize:11}}>{CAT_ICONS[cat]||"📁"}</span>{rnFolder===cat?<input autoFocus value={rnFolderVal} onChange={e=>setRnFolderVal(e.target.value)} onBlur={()=>{renameFolder(cat,rnFolderVal);setRnFolder(null);}} onKeyDown={e=>{if(e.key==="Enter"){renameFolder(cat,rnFolderVal);setRnFolder(null);}if(e.key==="Escape")setRnFolder(null);}} onClick={e=>e.stopPropagation()} style={{flex:1,background:"rgba(255,255,255,.15)",border:"none",color:"#fff",borderRadius:3,padding:"2px 6px",fontSize:11,fontWeight:700,outline:"none",letterSpacing:".5px"}}/>:<span style={{fontSize:11,fontWeight:700,color:isDragOver?"#579bfc":"rgba(255,255,255,.5)",letterSpacing:".5px",flex:1}}>{cat}</span>}
                   {isDragOver&&<span style={{fontSize:10,color:"#579bfc",fontWeight:700}}>Drop here</span>}
                   {!isDragOver&&cb.length>0&&<span style={{fontSize:10,color:"rgba(255,255,255,.25)",background:"rgba(255,255,255,.08)",borderRadius:8,padding:"0 6px"}}>{cb.length}</span>}
                 </div>
-                {!ic&&<div>{cb.length===0&&<div style={{padding:"3px 38px",fontSize:11,color:"rgba(255,255,255,.2)",fontStyle:"italic"}}>Empty</div>}
+                <div data-sidebar-section data-collapsed={ic?"true":"false"}>{cb.length===0&&!ic&&<div style={{padding:"3px 38px",fontSize:11,color:"rgba(255,255,255,.2)",fontStyle:"italic"}}>Empty</div>}
                   {cb.map(b=>(<div key={b.id} data-board-item draggable
                     onDragStart={e=>{setDragBoardId(b.id);e.dataTransfer.effectAllowed="move";}}
                     onDragEnd={()=>{setDragBoardId(null);setDragOverCat(null);setDragOverBoardId(null);}}
@@ -2419,20 +2553,29 @@ export default function App(){
                     onDrop={e=>{e.preventDefault();e.stopPropagation();setDragOverBoardId(null);setDragOverCat(null);if(!dragBoardId||dragBoardId===b.id)return;setBoards(bs=>{const n=[...bs];const fromIdx=n.findIndex(x=>x.id===dragBoardId);if(fromIdx<0)return bs;n[fromIdx]={...n[fromIdx],cat};const toIdx=n.findIndex(x=>x.id===b.id);const [moved]=n.splice(fromIdx,1);n.splice(toIdx,0,moved);return n;});setDragBoardId(null);}}
                     onClick={()=>setActiveId(b.id)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"board",boardId:b.id});}} style={{padding:"5px 10px 5px 38px",fontSize:13,cursor:"grab",background:b.id===activeId?"rgba(255,255,255,.12)":"transparent",display:"flex",alignItems:"center",gap:7,color:b.id===activeId?"#fff":"rgba(255,255,255,.65)",borderRadius:4,margin:"1px 6px",borderLeft:b.id===activeId?"3px solid #579bfc":"3px solid transparent",borderTop:dragOverBoardId===b.id?"2px solid #579bfc":"2px solid transparent",transition:"all .1s",opacity:dragBoardId===b.id?0.4:1}} onMouseEnter={e=>{if(b.id!==activeId)e.currentTarget.style.background="rgba(255,255,255,.06)";}} onMouseLeave={e=>{e.currentTarget.style.background=b.id===activeId?"rgba(255,255,255,.12)":"transparent";}}>
                     <span style={{fontSize:11}}>{b.icon}{b.isMain?" 📊":b.isDashboard?" 📈":b.isSummary?" 📑":b.linkedMainBoardId?" 🔗":b.syncTargets?.length?" ⇄":""}</span>
-                    {rnBoard===b.id?<input value={rnVal} onChange={e=>setRnVal(e.target.value)} onBlur={()=>{saveBN(b.id,rnVal);setRnBoard(null);}} onKeyDown={e=>{if(e.key==="Enter"){saveBN(b.id,rnVal);setRnBoard(null);}}} onClick={e=>e.stopPropagation()} style={{flex:1,background:"rgba(255,255,255,.15)",border:"none",color:"#fff",borderRadius:3,padding:"2px 6px",fontSize:12,outline:"none"}} autoFocus/>
-                    :<span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.name}</span>}
-                    {(()=>{if(b.isDashboard||b.isSummary)return null;const all=b.groups.flatMap(g=>g.rows);const t=all.length;if(!t)return null;const d=all.filter(r=>r.status==="Done").length;const p=Math.round(d/t*100);return(<div style={{width:28,height:4,borderRadius:2,background:"rgba(255,255,255,.15)",overflow:"hidden",flexShrink:0}} title={p+"% complete"}><div style={{width:p+"%",height:4,borderRadius:2,background:p===100?"#00c875":p>50?"#579bfc":"#fdab3d"}}/></div>);})()}
+                    <div style={{flex:1,minWidth:0}}>
+                      {rnBoard===b.id?<input value={rnVal} onChange={e=>setRnVal(e.target.value)} onBlur={()=>{saveBN(b.id,rnVal);setRnBoard(null);}} onKeyDown={e=>{if(e.key==="Enter"){saveBN(b.id,rnVal);setRnBoard(null);}}} onClick={e=>e.stopPropagation()} style={{width:"100%",background:"rgba(255,255,255,.15)",border:"none",color:"#fff",borderRadius:3,padding:"2px 6px",fontSize:12,outline:"none",boxSizing:"border-box"}} autoFocus/>
+                      :<span style={{display:"block",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{b.name}</span>}
+                      {(()=>{if(b.isDashboard||b.isSummary)return null;const all=b.groups.flatMap(g=>g.rows);const t=all.length;if(!t)return null;const d=all.filter(r=>r.status==="Done").length;const p=Math.round(d/t*100);return(<div style={{display:"flex",alignItems:"center",gap:4,marginTop:2}}><div style={{flex:1,height:3,borderRadius:2,background:"rgba(255,255,255,.12)",overflow:"hidden"}}><div style={{width:p+"%",height:3,borderRadius:2,background:p===100?"#00c875":p>50?"#579bfc":"#fdab3d"}}/></div><span style={{fontSize:9,color:"rgba(255,255,255,.35)",flexShrink:0}}>{p}%</span></div>);})()}
+                    </div>
                     <span onClick={e=>{e.stopPropagation();toggleFav(b.id);}} style={{fontSize:10,cursor:"pointer",color:favorites.includes(b.id)?"#fdab3d":"rgba(255,255,255,.2)",opacity:favorites.includes(b.id)?1:0,transition:"opacity .15s"}} className="favStar" title={favorites.includes(b.id)?"Unfavorite":"Add to favorites"}>{favorites.includes(b.id)?"★":"☆"}</span>
                   </div>))}
-                </div>}
+                </div>
               </div>);
             })}
           </div>
+          {newFolderOpen?<div style={{padding:"4px 12px 8px",display:"flex",gap:4}}>
+            <input autoFocus value={newFolderName} onChange={e=>setNewFolderName(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")addFolder(newFolderName);if(e.key==="Escape")setNewFolderOpen(false);}} placeholder="Folder name..." style={{flex:1,padding:"6px 10px",background:"rgba(255,255,255,.1)",border:"1px solid rgba(255,255,255,.2)",borderRadius:4,color:"#fff",fontSize:12,outline:"none"}}/>
+            <button onClick={()=>addFolder(newFolderName)} style={{padding:"6px 10px",background:"#579bfc",color:"#fff",border:"none",borderRadius:4,cursor:"pointer",fontSize:11,fontWeight:600}}>Add</button>
+            <button onClick={()=>{setNewFolderOpen(false);setNewFolderName("");}} style={{padding:"6px 6px",background:"none",color:"rgba(255,255,255,.5)",border:"none",cursor:"pointer",fontSize:14}}>✕</button>
+          </div>:null}
           <div style={{padding:"8px 12px",borderTop:"1px solid rgba(255,255,255,.08)",display:"flex",gap:6}}>
             <button onClick={()=>setTemplateModal(true)} style={{flex:1,padding:"7px",background:"#6c5ce7",color:"#fff",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600}}>+ New board</button>
+            <button onClick={()=>setNewFolderOpen(true)} style={{padding:"7px 10px",background:"rgba(255,255,255,.08)",color:"rgba(255,255,255,.6)",border:"none",borderRadius:6,cursor:"pointer",fontSize:12,fontWeight:600}} title="Create folder">📁+</button>
           </div>
           <div style={{padding:"4px 12px 8px",textAlign:"center"}}><span style={{fontSize:9,color:"rgba(255,255,255,.45)",letterSpacing:.5}}>v{APP_VERSION}</span></div>
         </div>}
+        {!sideCol&&<div onMouseDown={e=>{e.preventDefault();const startX=e.clientX;const startW=sidebarW;const onMove=ev=>{const nw=Math.max(180,Math.min(450,startW+(ev.clientX-startX)));setSidebarW(nw);};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);};document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}} style={{position:"absolute",top:0,right:0,bottom:0,width:4,cursor:"col-resize",background:"transparent",zIndex:10,transition:"background .15s"}} onMouseEnter={e=>e.currentTarget.style.background="rgba(87,155,252,.5)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
       </div>
 
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
@@ -2444,12 +2587,23 @@ export default function App(){
               </div>}
             </div>
             {editBN!=null?<input value={editBN} onChange={e=>setEditBN(e.target.value)} onBlur={()=>{saveBN(activeId,editBN);setEditBN(null);}} onKeyDown={e=>{if(e.key==="Enter"){saveBN(activeId,editBN);setEditBN(null);}}} style={{fontSize:22,fontWeight:700,border:"none",borderBottom:"2px solid #0073ea",outline:"none",background:"transparent"}} autoFocus/>
-            :<h2 onClick={()=>setEditBN(board?.name||"")} style={{margin:0,fontSize:22,fontWeight:700,cursor:"pointer"}}>{board?.name||"Board"}</h2>}
+            :<div>
+              <h2 onClick={()=>setEditBN(board?.name||"")} style={{margin:0,fontSize:20,fontWeight:700,cursor:"pointer",lineHeight:1.2}}>{board?.name||"Board"}</h2>
+              {board&&!board.isDashboard&&!board.isSummary&&(()=>{const all=board.groups.flatMap(g=>g.rows);const t=all.length;const d=all.filter(r=>r.status==="Done").length;const pct=t?Math.round(d/t*100):0;return(
+                <div style={{display:"flex",gap:8,alignItems:"center",fontSize:10,color:T.textMuted,marginTop:2}}>
+                  {board.desc&&<span style={{color:T.textSoft}}>{board.desc.slice(0,50)}{board.desc.length>50?"…":""}</span>}
+                  {board.desc&&<span>·</span>}
+                  <span>{t} item{t!==1?"s":""}</span>
+                  <span style={{display:"flex",alignItems:"center",gap:3}}><span style={{width:32,height:3,borderRadius:2,background:T.border,overflow:"hidden",display:"inline-block"}}><span style={{width:pct+"%",height:3,borderRadius:2,background:pct===100?"#00c875":"#0073ea",display:"block"}}/></span>{pct}%</span>
+                  {board.groups.length>1&&<span>{board.groups.length} groups</span>}
+                </div>);})()}
+            </div>}
             <div style={{flex:1}}/>
             <span onClick={()=>setActivityOpen(true)} style={{cursor:"pointer",fontSize:18}} title="Activity">📊</span>
             <div style={{position:"relative"}}><span onClick={()=>setNotifsOpen(true)} style={{cursor:"pointer",fontSize:18}}>🔔</span>{unreadCount>0&&<span style={{position:"absolute",top:-4,right:-6,background:"#e2445c",color:"#fff",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{unreadCount}</span>}</div>
             {searchOpen?<div style={{display:"flex",alignItems:"center",gap:6,background:isDark?T.input:"#f0f2f5",borderRadius:6,padding:"4px 10px"}}><input data-search-input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search..." style={{border:"none",background:"transparent",outline:"none",fontSize:13,width:150,color:T.text}} autoFocus/><span onClick={()=>{setSearchOpen(false);setSearch("");}} style={{cursor:"pointer",color:"#999"}}>✕</span></div>:<span onClick={()=>setSearchOpen(true)} style={{cursor:"pointer",fontSize:18}}>🔍</span>}
             <span onClick={undo} title={"Undo (Ctrl+Z)"+(undoRef.current.length?" · "+undoRef.current.length+" steps":"")} style={{cursor:undoRef.current.length?"pointer":"default",fontSize:18,opacity:undoRef.current.length?1:0.3,transition:"opacity .2s"}}>↩</span>
+            <span onClick={redo} title={"Redo (Ctrl+Y)"+(redoRef.current.length?" · "+redoRef.current.length+" steps":"")} style={{cursor:redoRef.current.length?"pointer":"default",fontSize:18,opacity:redoRef.current.length?1:0.3,transition:"opacity .2s"}}>↪</span>
             <div style={{position:"relative"}}><span onClick={()=>setHistoryOpen(true)} style={{cursor:"pointer",fontSize:18}}>📜</span>{histBadge>0&&<span style={{position:"absolute",top:-4,right:-6,background:"#6c5ce7",color:"#fff",borderRadius:"50%",width:16,height:16,display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,fontWeight:700}}>{histBadge>99?"99+":histBadge}</span>}</div>
             <div ref={ioRef} style={{position:"relative"}}>
               <button onClick={()=>setIoMenuOpen(o=>!o)} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+(ioMenuOpen?"#6c5ce7":T.border),background:ioMenuOpen?(isDark?"#2a1a3a":"#f5f3ff"):T.card,cursor:"pointer",fontSize:12,color:ioMenuOpen?"#6c5ce7":T.textSoft,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>⇅ Import / Export</button>
@@ -2488,7 +2642,7 @@ export default function App(){
                 <span style={{fontSize:12,fontWeight:600,color:T.text,maxWidth:80,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{currentUser.name}</span>
                 <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="#999" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
               </div>
-              {userMenuOpen&&<UserMenu currentUser={currentUser} setCurrentUser={setCurrentUser} teamMembers={teamMembers} onOpenAdmin={()=>{setUserMenuOpen(false);setAdminOpen(true);}} onClose={()=>setUserMenuOpen(false)} onLogout={onLogout} onReset={()=>{try{localStorage.removeItem(LS_KEY);}catch(e){}setBoards(IBOARDS);setActiveId("b_portfolio");setWorkspaces(INIT_WS);setActiveWs("ws_it");setFavorites([]);setRecentBoards([]);setItemTemplates([{id:"tpl_standup",name:"Weekly Standup",config:{task:"Weekly Standup",status:"Not Started",priority:"Medium",tags:["Review"]}},{id:"tpl_bug",name:"Bug Report",config:{task:"Bug — ",status:"Not Started",priority:"High",tags:["Bug"]}},{id:"tpl_feature",name:"Feature Request",config:{task:"Feature — ",status:"Not Started",priority:"Medium",tags:["Feature"]}}]);setSavedFilters([{id:"sf_1",name:"My overdue items",quickFilter:"overdue",filters:{status:[],owner:[],priority:[],tags:[]}},{id:"sf_2",name:"High priority stuck",quickFilter:"stuck",filters:{status:[],owner:[],priority:["High","Critical"],tags:[]}}]);setUserMenuOpen(false);setToast("🔄 Data reset to defaults");}}/>}
+              {userMenuOpen&&<UserMenu currentUser={currentUser} setCurrentUser={setCurrentUser} teamMembers={teamMembers} onOpenAdmin={()=>{setUserMenuOpen(false);setAdminOpen(true);}} onClose={()=>setUserMenuOpen(false)} onLogout={onLogout} onReset={()=>{try{localStorage.removeItem(LS_KEY);}catch(e){}setBoards(IBOARDS);setActiveId("b_portfolio");setWorkspaces(INIT_WS);setActiveWs("ws_it");setFavorites([]);setBoardCats(DEF_CATS);setItemTemplates([{id:"tpl_standup",name:"Weekly Standup",config:{task:"Weekly Standup",status:"Not Started",priority:"Medium",tags:["Review"]}},{id:"tpl_bug",name:"Bug Report",config:{task:"Bug — ",status:"Not Started",priority:"High",tags:["Bug"]}},{id:"tpl_feature",name:"Feature Request",config:{task:"Feature — ",status:"Not Started",priority:"Medium",tags:["Feature"]}}]);setSavedFilters([{id:"sf_1",name:"My overdue items",quickFilter:"overdue",filters:{status:[],owner:[],priority:[],tags:[]}},{id:"sf_2",name:"High priority stuck",quickFilter:"stuck",filters:{status:[],owner:[],priority:["High","Critical"],tags:[]}}]);setUserMenuOpen(false);setToast("🔄 Data reset to defaults");}}/>}
             </div>
           </div>
           {editDesc?<div style={{paddingBottom:6}}><input value={descVal} onChange={e=>setDescVal(e.target.value)} onBlur={()=>{saveDesc(activeId,descVal);setEditDesc(false);}} onKeyDown={e=>{if(e.key==="Enter"){saveDesc(activeId,descVal);setEditDesc(false);}}} style={{width:"100%",border:"none",borderBottom:"1px solid #ddd",fontSize:13,color:T.textSoft,outline:"none",padding:"2px 0",boxSizing:"border-box"}} autoFocus/></div>
@@ -2516,9 +2670,9 @@ export default function App(){
           </div>}
         </div>
 
-        <div ref={contentRef} data-content-area style={{flex:1,overflow:"auto",padding:"16px 24px 24px",background:T.bg}}>
+        <div ref={contentRef} data-content-area data-view-content key={activeView+"-"+activeId} style={{flex:1,overflow:"auto",padding:"16px 24px 24px",background:T.bg}}>
           {board?.isDashboard&&<DashboardBoard boards={boards} statuses={statuses} priorities={priorities}/>}
-          {board?.isSummary&&<SummaryBoard boards={boards} boardId={board.summarySrc} onChangeSrc={changeSummarySrc}/>}
+          {board?.isSummary&&<SummaryBoard boards={boards} boardId={board.summarySrc} onChangeSrc={changeSummarySrc} onGoToItem={(bId,gId,rId)=>{setActiveId(bId);setTimeout(()=>setDetailPanel({gId,rId}),100);}}/>}
           {!board?.isDashboard&&!board?.isSummary&&board?.isMain&&<SyncBanner icon="📊" title="Portfolio Board" sub="– Status & Progress auto-sync from linked task boards" pill="Live Sync ON"/>}
           {boardReadonly&&<div style={{background:"#fff8e7",border:"1px solid #ffeaa0",borderRadius:8,padding:"10px 16px",marginBottom:16,display:"flex",alignItems:"center",gap:10,fontSize:13}}><span style={{fontSize:16}}>🔒</span><span style={{fontWeight:600,color:"#b8860b"}}>View Only</span><span style={{color:"#999"}}>— You have read-only access to this board. Contact the owner to request edit access.</span></div>}
           {!board?.isDashboard&&!board?.isSummary&&<div data-quick-filters style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
@@ -2544,14 +2698,14 @@ export default function App(){
             const rows=processRows(group.rows,group.id);const isH=hovGroup===group.id;const ss=sortSt[group.id];
             const mCols=board.columns||MAIN_COLS;const visCols=hiddenCols.length>0?mCols.filter(c=>!hiddenCols.includes(c.name)):mCols;
             return(<div key={group.id} style={{marginBottom:18}} draggable onDragStart={()=>setDragGroup(group.id)} onDragOver={e=>e.preventDefault()} onDrop={e=>onGDrop(e,group.id)}>
-              <div onMouseEnter={()=>setHovGroup(group.id)} onMouseLeave={()=>setHovGroup(null)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",background:group.color,borderRadius:"8px 8px 0 0",cursor:"grab"}}>
+              <div onMouseEnter={()=>setHovGroup(group.id)} onMouseLeave={()=>setHovGroup(null)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"group",gId:group.id,groupName:group.name});}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",background:group.color,borderRadius:"8px 8px 0 0",cursor:"grab"}}>
                 <span onClick={e=>{e.stopPropagation();togGroup(group.id);}} style={{cursor:"pointer",fontSize:11,color:"#fff",transform:group.collapsed?"rotate(-90deg)":"",transition:"transform .15s"}}>▼</span>
                 <span style={{fontSize:14,fontWeight:700,color:"#fff"}}>{group.name}</span>
                 <span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{group.rows.length} projects</span>
                 <div style={{flex:1}}/><span onClick={e=>{e.stopPropagation();delGroup(group.id);}} style={{cursor:"pointer",color:"rgba(255,255,255,.5)",fontSize:13,opacity:isH?1:0,transition:"opacity .15s"}}>✕</span>
               </div>
               {!group.collapsed&&<div data-group-body style={{background:T.card,borderRadius:"0 0 8px 8px",border:"1px solid "+T.border,borderTop:"none"}}><div style={{overflowX:"auto"}}>
-                <div style={{display:"flex",borderBottom:"1px solid "+T.border,background:T.rowAlt,minWidth:"fit-content"}}>
+                <div data-col-header style={{display:"flex",borderBottom:"1px solid "+T.border,background:T.rowAlt,minWidth:"fit-content"}}>
                   <div data-stick="0" style={{width:44,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><input type="checkbox" checked={group.rows.length>0&&group.rows.every(r=>r.checked)} onChange={e=>selectAllInGroup(group.id,e.target.checked)} style={{margin:0}}/></div>
                   {visCols.map(col=>{const sortId=col.id==="tltype"?"timeline":col.id==="progress"?"projectProgress":col.id;const isSorted=ss&&ss.colId===sortId;const isColDrag=dragCol===col.id;const isColOver=dragOverCol===col.id&&dragCol&&dragCol!==col.id;return(<div key={col.id} data-stick={col.id==="task"?"44":undefined} draggable={!resizing} onDragStart={e=>{e.stopPropagation();setDragCol(col.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("colDrag",col.id);}} onDragOver={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)setDragOverCol(col.id);}} onDragLeave={()=>{if(dragOverCol===col.id)setDragOverCol(null);}} onDrop={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)reorderCol(dragCol,col.id);setDragCol(null);setDragOverCol(null);}} onDragEnd={()=>{setDragCol(null);setDragOverCol(null);}} style={{width:col.w,flexShrink:0,padding:"7px 6px",fontSize:12,fontWeight:600,color:T.textSoft,display:"flex",alignItems:"center",gap:2,borderRight:"1px solid #f0f0f0",cursor:"grab",background:isColOver?"#dbeafe":isSorted?"#eef3ff":"transparent",borderLeft:isColOver?"2px solid #0073ea":"2px solid transparent",opacity:isColDrag?0.4:1,transition:"background .12s, opacity .12s",position:"relative"}} onMouseEnter={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=1)} onMouseLeave={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=0)}>
                     <span onClick={()=>{if(col.id==="linkedBoard")return;const nd=isSorted&&ss.dir==="asc"?"desc":isSorted&&ss.dir==="desc"?null:"asc";doSort(group.id,sortId,nd);}} style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{col.name}{col.synced&&<span style={{marginLeft:4,fontSize:9,color:"#a25ddc"}}>🔗</span>}</span>
@@ -2561,7 +2715,7 @@ export default function App(){
                   </div>);})}
                   <div style={{width:36,flexShrink:0}}/>
                 </div>
-                {rows.map(row=>{
+                <div data-group-rows>{rows.map(row=>{
                   const linked=boards.find(b=>b.linkedMainItemName===row.task&&!b.isMain);
                   const prog=row.projectProgress||0;
                   return(<div key={row.id} data-row-id={row.id} style={{display:"flex",borderBottom:"1px solid "+T.borderSoft,minWidth:"fit-content",background:rowTint(row,isDark)}} draggable onDragStart={()=>setDragRow({gId:group.id,rId:row.id})} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)} onMouseEnter={e=>{const t=rowTint(row,isDark);e.currentTarget.style.background=t==="transparent"?T.rowHover:t;}} onMouseLeave={e=>e.currentTarget.style.background=rowTint(row,isDark)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"row",gId:group.id,rId:row.id,groups:board.groups});}}>
@@ -2588,7 +2742,7 @@ export default function App(){
                       <span onClick={()=>setConfirmDel({type:"row",gId:group.id,rId:row.id,name:row.task||"this project"})} title="Delete" style={{cursor:"pointer",color:"#ccc",fontSize:13,fontWeight:600,lineHeight:1,padding:"2px 3px",borderRadius:3}} onMouseEnter={e=>{e.currentTarget.style.color="#e2445c";e.currentTarget.style.background="#fff0f0";}} onMouseLeave={e=>{e.currentTarget.style.color="#ccc";e.currentTarget.style.background="transparent";}}>✕</span>
                     </div>
                   </div>);
-                })}
+                })}</div>
                 <div onClick={()=>addRow(group.id)} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background="#e6f0ff";}} onDragLeave={e=>{e.currentTarget.style.background="";}} onDrop={e=>{e.currentTarget.style.background="";onRowDrop(e,group.id,"__end__");}} style={{padding:"7px 16px 7px 44px",color:"#0073ea",cursor:"pointer",fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New project</div>
                 <GroupSummaryBar rows={group.rows} statuses={bStatuses} cols={visCols}/>
               </div></div>}
@@ -2597,7 +2751,7 @@ export default function App(){
           {activeView==="Main table"&&!board?.isDashboard&&!board?.isSummary&&board&&!board.isMain&&board?.groups.map(group=>{
             const rows=processRows(group.rows,group.id);const gC=getGCols(group);const isH=hovGroup===group.id;const ss=sortSt[group.id];
             return(<div key={group.id} style={{marginBottom:18}} draggable onDragStart={()=>setDragGroup(group.id)} onDragOver={e=>e.preventDefault()} onDrop={e=>onGDrop(e,group.id)}>
-              <div onMouseEnter={()=>setHovGroup(group.id)} onMouseLeave={()=>setHovGroup(null)} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",background:group.color,borderRadius:"8px 8px 0 0",cursor:"grab"}}>
+              <div onMouseEnter={()=>setHovGroup(group.id)} onMouseLeave={()=>setHovGroup(null)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"group",gId:group.id,groupName:group.name});}} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",background:group.color,borderRadius:"8px 8px 0 0",cursor:"grab"}}>
                 <span onClick={e=>{e.stopPropagation();togGroup(group.id);}} style={{cursor:"pointer",fontSize:11,color:"#fff",transform:group.collapsed?"rotate(-90deg)":"",transition:"transform .15s"}}>▼</span>
                 <input value={group.name} onChange={e=>rnGroup(group.id,e.target.value)} onClick={e=>e.stopPropagation()} style={{border:"none",fontSize:14,fontWeight:700,color:"#fff",background:"transparent",outline:"none",width:180}}/>
                 <ProgBar rows={group.rows}/>
@@ -2605,7 +2759,7 @@ export default function App(){
                 <div style={{flex:1}}/><span onClick={e=>{e.stopPropagation();delGroup(group.id);}} style={{cursor:"pointer",color:"rgba(255,255,255,.5)",fontSize:13,opacity:isH?1:0,transition:"opacity .15s"}}>✕</span>
               </div>
               {!group.collapsed&&<div data-group-body style={{background:T.card,borderRadius:"0 0 8px 8px",border:"1px solid "+T.border,borderTop:"none"}}><div style={{overflowX:"auto"}}>
-                <div style={{display:"flex",borderBottom:"1px solid "+T.border,background:T.rowAlt,minWidth:"fit-content"}}>
+                <div data-col-header style={{display:"flex",borderBottom:"1px solid "+T.border,background:T.rowAlt,minWidth:"fit-content"}}>
                   <div data-stick="0" style={{width:44,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center"}}><input type="checkbox" checked={group.rows.filter(r=>!r._syncReadonly).length>0&&group.rows.filter(r=>!r._syncReadonly).every(r=>r.checked)} onChange={e=>selectAllInGroup(group.id,e.target.checked)} style={{margin:0}}/></div>
                   {gC.map(col=>{const isSorted=ss&&ss.colId===(col.id==="timeline"?"tlStart":col.id);const isRn=rnColId===col.id;const isColDrag=dragCol===col.id;const isColOver=dragOverCol===col.id&&dragCol&&dragCol!==col.id;return(<div key={col.id} data-stick={col.id==="task"?"44":undefined} draggable={!isRn&&!resizing} onDragStart={e=>{e.stopPropagation();setDragCol(col.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("colDrag",col.id);}} onDragOver={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)setDragOverCol(col.id);}} onDragLeave={()=>{if(dragOverCol===col.id)setDragOverCol(null);}} onDrop={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)reorderCol(dragCol,col.id);setDragCol(null);setDragOverCol(null);}} onDragEnd={()=>{setDragCol(null);setDragOverCol(null);}} style={{width:col.w,flexShrink:0,padding:"7px 6px",fontSize:12,fontWeight:600,color:T.textSoft,display:"flex",alignItems:"center",gap:2,borderRight:"1px solid #f0f0f0",cursor:isRn?"text":"grab",background:isColOver?"#dbeafe":isSorted?"#eef3ff":"transparent",borderLeft:isColOver?"2px solid #0073ea":"2px solid transparent",opacity:isColDrag?0.4:1,transition:"background .12s, opacity .12s",position:"relative"}} onMouseEnter={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=1)} onMouseLeave={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=0)}>
                     {isRn?<input value={rnColVal} onChange={e=>setRnColVal(e.target.value)} onBlur={()=>{rnCol(col.id,rnColVal);setRnColId(null);}} onKeyDown={e=>{if(e.key==="Enter"){rnCol(col.id,rnColVal);setRnColId(null);}}} onClick={e=>e.stopPropagation()} style={{flex:1,border:"none",borderBottom:"2px solid #0073ea",background:"transparent",fontSize:12,fontWeight:600,outline:"none",padding:"0 2px"}} autoFocus/>
@@ -2616,7 +2770,7 @@ export default function App(){
                   </div>);})}
                   <div onClick={e=>{e.stopPropagation();setColCtx({x:e.clientX,y:e.clientY,colId:null,gId:group.id,addOnly:true});}} style={{width:36,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",color:"#aaa",fontSize:18}} title="Add column">+</div>
                 </div>
-                {rows.map(row=>{const hasSub=(row.subitems||[]).length>0;const isExp=expandedSub[row.id];const od=isOverdue(row);const isSynced=!!row._syncReadonly;return(<div key={row.id}>
+                <div data-group-rows>{rows.map(row=>{const hasSub=(row.subitems||[]).length>0;const isExp=expandedSub[row.id];const od=isOverdue(row);const isSynced=!!row._syncReadonly;return(<div key={row.id}>
                   <div data-row-id={row.id} draggable={!isSynced} onDragStart={()=>{if(!isSynced)setDragRow({gId:group.id,rId:row.id});}} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)}
                     onContextMenu={e=>{e.preventDefault();if(!isSynced)setCtxMenu({x:e.clientX,y:e.clientY,type:"row",gId:group.id,rId:row.id,groups:board.groups});}}
                     style={{display:"flex",borderBottom:"1px solid "+T.borderSoft,minWidth:"fit-content",cursor:isSynced?"default":"grab",borderLeft:isSynced?"3px solid #a25ddc":od?"3px solid #e2445c":"3px solid transparent",background:isSynced?isDark?"#2a1a3a":"#faf8ff":rowTint(row,isDark),transition:"all .1s"}} onMouseEnter={e=>{if(!isSynced){const t=rowTint(row,isDark);e.currentTarget.style.background=t==="transparent"?T.rowHover:t;}}} onMouseLeave={e=>{e.currentTarget.style.background=isSynced?isDark?"#2a1a3a":"#faf8ff":rowTint(row,isDark);}}>
@@ -2625,9 +2779,9 @@ export default function App(){
                       :<><span onClick={()=>{if(!hasSub){addSubitem(group.id,row.id);}else{setExpandedSub(s=>({...s,[row.id]:!s[row.id]}));}}} style={{cursor:"pointer",fontSize:8,color:hasSub?"#999":"#ddd",transform:isExp?"rotate(90deg)":"",transition:"transform .15s",display:"inline-block"}} title={hasSub?(isExp?"Collapse":"Expand")+" subitems":"Add subitem"}>▶</span>
                       <input type="checkbox" checked={row.checked||false} onChange={e=>upRow(group.id,row.id,"checked",e.target.checked)} style={{margin:0}}/></>}
                     </div>
-                    {gC.map(col=>(<div key={col.id} data-stick={col.id==="task"?"44":undefined} style={{width:col.w,flexShrink:0,padding:"2px 4px",display:"flex",alignItems:"center",borderRight:"1px solid "+T.borderSoft}}>
+                    {gC.map(col=>(<div key={col.id} data-stick={col.id==="task"?"44":undefined} data-pinned={pinnedCols.includes(col.id)&&col.id!=="task"?"":undefined} style={{width:col.w,flexShrink:0,padding:"2px 4px",display:"flex",alignItems:"center",borderRight:"1px solid "+T.borderSoft,...(pinnedCols.includes(col.id)&&col.id!=="task"?getPinStyle(col.id,gC):{})}}>
                       {col.id==="weeklyStatus"?<input value={row.weeklyStatus||""} onChange={e=>upRow(group.id,row.id,"weeklyStatus",e.target.value)} placeholder="Status..." style={{width:"100%",border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none"}}/>
-                      :<Cell col={col} row={row} onChange={(f,v)=>upRow(group.id,row.id,f,v)} onOpenUpdates={()=>setUpdPanel({gId:group.id,rId:row.id})} onOpenDetail={col.id==="task"?()=>setDetailPanel({gId:group.id,rId:row.id}):null} people={people} setPeople={setPeople} statuses={bStatuses} setStatuses={setBoardStatuses} priorities={bPriorities} setPriorities={setBoardPriorities} allTags={allTags} setAllTags={setAllTags} readonly={!!row._syncReadonly} onEditLabels={(cid,labels)=>setCols(cs=>cs.map(c=>c.id!==cid?c:{...c,labels}))}/>}
+                      :<Cell col={col} row={row} onChange={(f,v)=>upRow(group.id,row.id,f,v)} onOpenUpdates={()=>setUpdPanel({gId:group.id,rId:row.id})} onOpenDetail={col.id==="task"?()=>setDetailPanel({gId:group.id,rId:row.id}):null} readonly={!!row._syncReadonly} onEditLabels={(cid,labels)=>setCols(cs=>cs.map(c=>c.id!==cid?c:{...c,labels}))}/>}
                     </div>))}
                     <div className="rowActions" style={{width:80,flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",gap:4}}>
                       {isSynced?<span style={{fontSize:9,color:"#a25ddc"}} title="Mirror row – read only">🔒</span>
@@ -2647,6 +2801,7 @@ export default function App(){
                   </div>))}
                   {isExp&&<div onClick={()=>addSubitem(group.id,row.id)} style={{padding:"4px 16px 4px 50px",color:"#0073ea",cursor:"pointer",fontSize:12,background:isDark?"#252540":"#fafbfe"}}>+ subitem</div>}
                 </div>);})}
+                </div>
                 <div onClick={()=>addRow(group.id)} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background="#e6f0ff";}} onDragLeave={e=>{e.currentTarget.style.background="";}} onDrop={e=>{e.currentTarget.style.background="";onRowDrop(e,group.id,"__end__");}} style={{padding:"7px 16px 7px 44px",color:"#0073ea",cursor:"pointer",fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ Add task</div>
                 <GroupSummaryBar rows={group.rows} statuses={bStatuses} cols={gC}/>
               </div></div>}
@@ -2679,14 +2834,40 @@ export default function App(){
         </div>))}
       </div></SidePanel>}
       {updPanel&&updRow&&<SidePanel title={updRow.task} sub="Updates" onClose={()=>setUpdPanel(null)}><div style={{flex:1,overflowY:"auto",padding:16}}>{(updRow.updates||[]).length===0&&<div style={{color:"#aaa",textAlign:"center",padding:30}}>No updates</div>}{(updRow.updates||[]).slice().reverse().map(u=>(<div key={u.id} style={{marginBottom:10,padding:"10px 14px",background:"#f7f8fa",borderRadius:8,borderLeft:"3px solid #0073ea"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{u.author}</span><span style={{fontSize:11,color:"#999"}}>{u.time}</span></div><div style={{fontSize:13,color:"#444"}}>{renderMentionText(u.text,people)}</div></div>))}</div><div style={{padding:16,borderTop:"1px solid #eee"}}><UpdateInput onPost={t=>addUpdate(updPanel.gId,updPanel.rId,t)} people={people}/></div></SidePanel>}
-      {detailPanel&&detailRow&&<DetailPanel row={detailRow} gId={detailGId} onUpdate={(f,v)=>upRow(detailGId,detailRow.id,f,v)} onAddUpdate={t=>addUpdate(detailGId,detailRow.id,t)} onClose={()=>setDetailPanel(null)} people={people} statuses={bStatuses} priorities={bPriorities}/>}
+      {detailPanel&&detailRow&&<DetailPanel row={detailRow} gId={detailGId} onUpdate={(f,v)=>upRow(detailGId,detailRow.id,f,v)} onAddUpdate={t=>addUpdate(detailGId,detailRow.id,t)} onClose={()=>setDetailPanel(null)}/>}
       {notifsOpen&&<NotifsPanel notifs={notifs} setNotifs={setNotifs} onClose={()=>setNotifsOpen(false)}/>}
       {activityOpen&&<ActivityPanel boards={boards} onClose={()=>setActivityOpen(false)}/>}
-      {templateModal&&<TemplateModal onSelect={addBoardFromTemplate} onClose={()=>setTemplateModal(false)} boards={boards} mainBoards={boards.filter(b=>b.isMain)}/>}
+      {templateModal&&<TemplateModal onSelect={addBoardFromTemplate} onClose={()=>setTemplateModal(false)} boards={boards} mainBoards={boards.filter(b=>b.isMain)} boardCats={boardCats}/>}
       {shortcutsOpen&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.45)",zIndex:100020,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShortcutsOpen(false)}>
         <div onClick={e=>e.stopPropagation()} style={{background:V.card,borderRadius:14,padding:"24px 32px",width:380,maxHeight:"80vh",overflowY:"auto",boxShadow:"0 16px 60px rgba(0,0,0,.25)"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}><span style={{fontSize:17,fontWeight:800}}>⌨ Keyboard Shortcuts</span><span onClick={()=>setShortcutsOpen(false)} style={{cursor:"pointer",fontSize:18,color:V.tMut}}>✕</span></div>
-          {[["Ctrl + Z","Undo last action"],["Ctrl + N","Add new item"],["Ctrl + D","Duplicate selected rows"],["Ctrl + F","Search board"],["Ctrl + V","Paste rows from clipboard"],["Tab / Shift+Tab","Move between cells"],["Escape","Close current panel"],["?","Show this help"]].map(([k,d])=>(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid var(--sl-borderSoft,#f0f0f0)"}}><span style={{fontSize:13}}>{d}</span><kbd style={{background:V.rAlt,border:"1px solid var(--sl-border,#e0e0e0)",borderRadius:4,padding:"2px 8px",fontSize:11,fontFamily:"monospace",fontWeight:600}}>{k}</kbd></div>))}
+          {[["Ctrl + Z","Undo last action"],["Ctrl + Y","Redo"],["Ctrl + N","Add new item"],["Ctrl + D","Duplicate selected rows"],["Ctrl + F","Search board"],["Ctrl + K","Global search (all boards)"],["Ctrl + V","Paste rows from clipboard"],["↑↓←→","Navigate between cells"],["Tab / Shift+Tab","Move between cells"],["Escape","Close current panel"],["?","Show this help"]].map(([k,d])=>(<div key={k} style={{display:"flex",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid var(--sl-borderSoft,#f0f0f0)"}}><span style={{fontSize:13}}>{d}</span><kbd style={{background:V.rAlt,border:"1px solid var(--sl-border,#e0e0e0)",borderRadius:4,padding:"2px 8px",fontSize:11,fontFamily:"monospace",fontWeight:600}}>{k}</kbd></div>))}
+        </div>
+      </div>}
+      {globalSearchOpen&&<div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:100030,display:"flex",alignItems:"flex-start",justifyContent:"center",paddingTop:"15vh"}} onClick={()=>{setGlobalSearchOpen(false);setGlobalSearchQ("");}}>
+        <div onClick={e=>e.stopPropagation()} style={{background:V.card,borderRadius:14,width:520,maxHeight:"60vh",boxShadow:"0 20px 60px rgba(0,0,0,.3)",overflow:"hidden",animation:"scaleIn .15s ease"}}>
+          <div style={{padding:"12px 16px",display:"flex",alignItems:"center",gap:10,borderBottom:B.bdrS}}>
+            <span style={{fontSize:16}}>🔍</span>
+            <input autoFocus value={globalSearchQ} onChange={e=>setGlobalSearchQ(e.target.value)} onKeyDown={e=>{if(e.key==="Escape"){setGlobalSearchOpen(false);setGlobalSearchQ("");}}} placeholder="Search across all boards..." style={{flex:1,border:"none",outline:"none",fontSize:15,background:"transparent",color:T.text,padding:"4px 0"}}/>
+            <kbd style={{background:V.rAlt,border:B.bdr,borderRadius:4,padding:"2px 8px",fontSize:10,fontFamily:"monospace",color:V.tMut}}>ESC</kbd>
+          </div>
+          <div style={{maxHeight:"50vh",overflowY:"auto",padding:8}}>
+            {(()=>{
+              if(!globalSearchQ||globalSearchQ.length<2)return(<div style={{padding:"20px 16px",textAlign:"center",color:V.tMut,fontSize:13}}>Type at least 2 characters to search</div>);
+              const q=globalSearchQ.toLowerCase();
+              const results=[];
+              boards.forEach(b=>{if(b.isDashboard||b.isSummary)return;b.groups.forEach(g=>{g.rows.forEach(r=>{if((r.task||"").toLowerCase().includes(q)||(r.owner||"").toLowerCase().includes(q)||(r.notes||"").toLowerCase().includes(q)){results.push({board:b,group:g,row:r});}});});});
+              if(!results.length)return(<div style={{padding:"20px 16px",textAlign:"center"}}><div style={{fontSize:24,marginBottom:6}}>🔍</div><div style={{color:V.tMut,fontSize:13}}>No results for "{globalSearchQ}"</div></div>);
+              return results.slice(0,20).map(r=>(<div key={r.row.id} onClick={()=>{setActiveId(r.board.id);setDetailPanel({gId:r.group.id,rId:r.row.id});setGlobalSearchOpen(false);setGlobalSearchQ("");}} style={{padding:"10px 12px",borderRadius:8,cursor:"pointer",display:"flex",gap:10,alignItems:"center",marginBottom:2}} {...hov()}>
+                <div style={{width:8,height:8,borderRadius:"50%",background:SC[r.row.status]||"#ccc",flexShrink:0}}/>
+                <div style={{flex:1,minWidth:0}}>
+                  <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{r.row.task||"Untitled"}</div>
+                  <div style={{fontSize:11,color:V.tMut,display:"flex",gap:6}}><span>{r.board.icon} {r.board.name}</span><span>·</span><span>{r.group.name}</span>{r.row.owner&&<><span>·</span><span>{r.row.owner}</span></>}</div>
+                </div>
+                <span style={{fontSize:10,padding:"2px 8px",borderRadius:4,background:SC[r.row.status]||"#ccc",color:"#fff",fontWeight:600,flexShrink:0}}>{r.row.status}</span>
+              </div>));
+            })()}
+          </div>
         </div>
       </div>}
       {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
@@ -2695,8 +2876,10 @@ export default function App(){
           ?("This will permanently delete "+confirmDel.count+" selected item"+(confirmDel.count>1?"s":"")+". This cannot be undone.")
           :confirmDel.type==="board"
           ?("Delete the board \""+confirmDel.name+"\" and all its contents? This cannot be undone.")
+          :confirmDel.type==="folder"
+          ?("Delete folder \""+confirmDel.folderName+"\"?"+(confirmDel.count>0?" "+confirmDel.count+" board"+(confirmDel.count>1?"s":"")+" will be moved to another folder.":""))
           :("Delete \""+confirmDel.name+"\"? This cannot be undone.")}
-        onConfirm={()=>{if(confirmDel.type==="bulk")bulkDelete();else if(confirmDel.type==="board"){snap();setBoards(bs=>{const nb=bs.filter(b=>b.id!==confirmDel.boardId);setActiveId(nb[0]?.id);return nb;});}else delRow(confirmDel.gId,confirmDel.rId);setConfirmDel(null);}}
+        onConfirm={()=>{if(confirmDel.type==="bulk")bulkDelete();else if(confirmDel.type==="folder")deleteFolder(confirmDel.folderName);else if(confirmDel.type==="board"){snap();setBoards(bs=>{const nb=bs.filter(b=>b.id!==confirmDel.boardId);setActiveId(nb[0]?.id);return nb;});}else delRow(confirmDel.gId,confirmDel.rId);setConfirmDel(null);}}
         onCancel={()=>setConfirmDel(null)}/>}
       {selCount>0&&board&&<SelectionBar count={selCount} groups={board.groups} statuses={bStatuses} priorities={bPriorities} onDuplicate={bulkDuplicate} onDelete={()=>setConfirmDel({type:"bulk",count:selCount})} onMove={bulkMove} onSetStatus={bulkSetStatus} onSetPriority={bulkSetPriority} onDeselect={deselectAll}/>}
       {ctxMenu&&<CtxMenu pos={{x:ctxMenu.x,y:ctxMenu.y}} onClose={()=>setCtxMenu(null)} options={ctxMenu.type==="row"?[
@@ -2714,9 +2897,19 @@ export default function App(){
         {icon:"✎",label:"Rename",fn:()=>{setRnBoard(ctxMenu.boardId);setRnVal(boards.find(b=>b.id===ctxMenu.boardId)?.name||"");}},
         {icon:"⧉",label:"Duplicate board",fn:()=>dupBoard(ctxMenu.boardId)},
         {icon:"📗",label:"Export to Excel",fn:()=>{const b=boards.find(x=>x.id===ctxMenu.boardId);if(b){if(b.isDashboard)exportDashboardToExcel(boards);else if(b.isSummary)exportSummaryToExcel(boards,b.summarySrc||"all");else exportBoardToExcel(b);setToast("📥 Exported \""+b.name+"\"");}}},
-        {divider:true},(c=>({icon:CAT_ICONS[c],label:"Move to "+c,fn:()=>moveBoardCat(ctxMenu.boardId,c)})),
+        {divider:true},...boardCats.map(c=>({icon:"📁",label:"Move to "+c,fn:()=>moveBoardCat(ctxMenu.boardId,c)})),
         {divider:true},
         {icon:"🗑",label:"Delete board",danger:true,fn:()=>{if(boards.length>1){const bName=boards.find(b=>b.id===ctxMenu.boardId)?.name||"this board";setConfirmDel({type:"board",boardId:ctxMenu.boardId,name:bName});}}}
+      ]:ctxMenu.type==="group"?[
+        {icon:"⧉",label:"Duplicate group",fn:()=>dupGroup(ctxMenu.gId)},
+        ...wsBoards.filter(b=>b.id!==activeId&&!b.isDashboard&&!b.isSummary).map(b=>({icon:"→",label:"Move to "+b.name,fn:()=>moveGroupToBoard(ctxMenu.gId,b.id)})),
+        {divider:true},
+        {icon:"🗑",label:"Delete group",danger:true,fn:()=>{if(board.groups.length>1)delGroup(ctxMenu.gId);else setToast("⚠ Can't delete the last group");}}
+      ]:ctxMenu.type==="folder"?[
+        {icon:"✎",label:"Rename folder",fn:()=>{setRnFolder(ctxMenu.folderName);setRnFolderVal(ctxMenu.folderName);}},
+        {icon:"📁",label:"Add board here",fn:()=>{setTemplateModal(true);}},
+        {divider:true},
+        {icon:"🗑",label:"Delete folder",danger:true,fn:()=>{if(boardCats.length>1){setConfirmDel({type:"folder",folderName:ctxMenu.folderName,count:wsBoards.filter(b=>b.cat===ctxMenu.folderName).length});}else{setToast("⚠ Can't delete the last folder");}}}
       ]:[]}/>}
       {colCtx&&<ColCtxMenu pos={{x:colCtx.x,y:colCtx.y}} col={colCtx.addOnly?null:cols.find(c=>c.id===colCtx.colId)} onClose={()=>setColCtx(null)}
         onSort={dir=>{const cid=colCtx.colId==="timeline"?"tlStart":colCtx.colId==="tltype"?"timeline":colCtx.colId==="progress"?"projectProgress":colCtx.colId;doSort(colCtx.gId,cid,dir);}}
@@ -2724,6 +2917,8 @@ export default function App(){
         onRename={()=>{if(colCtx.colId){setRnColId(colCtx.colId);setRnColVal(cols.find(c=>c.id===colCtx.colId)?.name||"");}}}
         onHide={()=>{const c=cols.find(x=>x.id===colCtx.colId);if(c)hideCol(c.name);}}
         onDelete={()=>{if(colCtx.colId)delCol(colCtx.colId);}}
+        onPin={()=>{if(colCtx.colId)togglePin(colCtx.colId);}}
+        isPinned={colCtx.colId?pinnedCols.includes(colCtx.colId):false}
         colTypes={COL_TYPES}
       />}
       {syncModal&&board&&<SyncModal board={board} allBoards={wsBoards} onClose={()=>setSyncModal(false)} onAddSync={id=>{addSyncTarget(id);}} onRemoveSync={id=>{removeSyncTarget(id);}}/>}
@@ -2731,7 +2926,7 @@ export default function App(){
       {sharePanel&&board&&<SharePanel board={board} teamMembers={teamMembers} onUpdate={newShared=>{setBoards(bs=>{const n=[...bs];const i=n.findIndex(b=>b.id===activeId);if(i<0)return bs;n[i]={...n[i],shared:newShared};return n;});}} onClose={()=>setSharePanel(false)}/>}
       {wsSharePanel&&<WsSharePanel workspace={workspaces.find(w=>w.id===activeWs)} teamMembers={teamMembers} onUpdate={newShared=>{setWorkspaces(ws=>ws.map(w=>w.id!==activeWs?w:{...w,shared:newShared}));}} onClose={()=>setWsSharePanel(false)}/>}
     </div>
-  );
+  </SlateCtx.Provider>);
 }
 
 const AutoPanel=memo(({autos,setAutos,onClose,boardName})=>{
