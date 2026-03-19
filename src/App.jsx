@@ -9,7 +9,6 @@ function csvEsc(v){var s=String(v==null?"":v);return s.includes(",")||s.includes
 function dlSheets(name,sheets){
   var csv="\uFEFF"+sheets.map(function(sh){return "\u2500\u2500 "+sh[0]+" \u2500\u2500\n"+sh[1].map(function(r){return r.map(csvEsc).join(",");}).join("\n");}).join("\n\n");
   dlFile(name,csv,"text/csv;charset=utf-8;",".csv");}
-
 var EXP_COL_MAP={"task":"Name","owner":"Person","status":"Status","priority":"Priority","tlStart":"Timeline Start","tlEnd":"Timeline End","tags":"Labels","notes":"Text","weeklyUpdate":"Updates","completionDate":"Date","completionStatus":"Completion Status","dependentOn":"Dependencies","plannedEffort":"Planned","effortSpent":"Spent","timetracked":"Time Tracking"};
 var EXP_MAIN_MAP={"task":"Name","owner":"Person","status":"Status","priority":"Priority","tltype":"Timeline Type","customer":"Group","team":"Team","progress":"Progress","weeklyUpdate":"Updates"};
 
@@ -110,14 +109,9 @@ function parseImportFile(file,cb){
   reader.readAsText(file);}
 
 const uid=()=>"id_"+Math.random().toString(36).slice(2,9);
-const C={blue:"#0073ea",purple:"#6c5ce7",red:"#e2445c",green:"#00c875",orange:"#fdab3d",sky:"#579bfc",violet:"#a25ddc",dark:"#292f4c",grad:"linear-gradient(135deg,#6c5ce7,#00cec9)"};
+const C={blue:"#0073ea",purple:"#6c5ce7",red:"#e2445c",green:"#00c875",orange:"#fdab3d",sky:"#579bfc",violet:"#a25ddc",dark:"#292f4c",grey:"#c4c4c4",teal:"#037f4c",flame:"#ff642e",hlBlue:"#e6f0ff",hlPurp:"#f0eeff",hlGrey:"#e6e9ef",errBg:"#fff0f0",lgPurp:"#f5f3ff"};
 /* Board type system — replaces isMain/isDashboard/isSummary booleans */
-const BT={TASK:"task",PORTFOLIO:"portfolio",DASH:"dashboard",SUMMARY:"summary"};
-const bType=(b)=>b?.type||(b?.isMain?BT.PORTFOLIO:b?.isDashboard?BT.DASH:b?.isSummary?BT.SUMMARY:BT.TASK);
-const isTask=(b)=>bType(b)===BT.TASK;
-const isPortfolio=(b)=>bType(b)===BT.PORTFOLIO;
-const isDash=(b)=>bType(b)===BT.DASH;
-const isSummaryB=(b)=>bType(b)===BT.SUMMARY;
+const BT={TASK:"task",PORTFOLIO:"portfolio",DASH:"dashboard",SUMMARY:"summary"};const bType=(b)=>b?.type||(b?.isMain?BT.PORTFOLIO:b?.isDashboard?BT.DASH:b?.isSummary?BT.SUMMARY:BT.TASK);const isTask=(b)=>bType(b)===BT.TASK;const isPortfolio=(b)=>bType(b)===BT.PORTFOLIO;const isDash=(b)=>bType(b)===BT.DASH;const isSummaryB=(b)=>bType(b)===BT.SUMMARY;
 const isWkBoard=(b)=>!isDash(b)&&!isSummaryB(b); /* has groups with rows — task or portfolio */
 
 /* ─── SHARED HELPERS ─── */
@@ -126,34 +120,17 @@ const Toggle=memo(({on,onToggle})=>(<div onClick={onToggle} style={{width:36,hei
 const Initials=(name)=>name?name.split(" ").map(n=>n[0]).join("").slice(0,2).toUpperCase():"?";
 /* ─── CSS Variable Shorthands (dedup 250+ inline strings) ─── */
 const V={card:"var(--sl-card,#fff)",text:"var(--sl-text,#333)",tSoft:"var(--sl-textSoft,#666)",tMut:"var(--sl-textMuted,#999)",tMut8:"var(--sl-textMuted,#888)",tMutC:"var(--sl-textMuted,#ccc)",bdr:"var(--sl-border,#e0e0e0)",bdrS:"var(--sl-borderSoft,#f0f0f0)",rHov:"var(--sl-rowHover,#f5f5f5)",rAlt:"var(--sl-rowAlt,#f5f6f8)",rAltF:"var(--sl-rowAlt,#f7f8fa)",inp:"var(--sl-inputBorder,#ddd)"};
-const _fc={display:"flex",alignItems:"center"};
-const _fcc={display:"flex",alignItems:"center",justifyContent:"center"};
-const _ell={overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"};
-const B={bdr:"1px solid "+V.bdr,bdrS:"1px solid "+V.bdrS,inp:"1px solid "+V.inp};
+const _fc={display:"flex",alignItems:"center"};const _fcc={display:"flex",alignItems:"center",justifyContent:"center"};const _ell={overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"};const _btn={border:"none",borderRadius:6,cursor:"pointer",fontWeight:700};const B={bdr:"1px solid "+V.bdr,bdrS:"1px solid "+V.bdrS,inp:"1px solid "+V.inp};
 const hov=(bg=V.rHov)=>({onMouseEnter:e=>e.currentTarget.style.background=bg,onMouseLeave:e=>e.currentTarget.style.background="transparent"});
 /* ─── Shared Context (eliminates prop drilling for common values) ─── */
-const SlateCtx=createContext(null);
-const useSlate=()=>useContext(SlateCtx);
-const THEMES={
-  light:{bg:"#f6f7fb",card:"#fff",text:"#333",textSoft:"#666",textMuted:"#999",border:"#e6e9ef",borderSoft:"#f0f0f0",headerBg:"#fff",headerBorder:"#e6e9ef",rowHover:"#f8faff",rowAlt:"#fafbfc",input:"#fff",inputBorder:"#e0e0e0",panelBg:"#fff",toolbarBg:"#fff"},
+const SlateCtx=createContext(null);const useSlate=()=>useContext(SlateCtx);const THEMES={
+  light:{bg:"#f6f7fb",card:"#fff",text:"#333",textSoft:"#666",textMuted:"#999",border:C.hlGrey,borderSoft:"#f0f0f0",headerBg:"#fff",headerBorder:C.hlGrey,rowHover:"#f8faff",rowAlt:"#fafbfc",input:"#fff",inputBorder:"#e0e0e0",panelBg:"#fff",toolbarBg:"#fff"},
   dark:{bg:"#1a1a2e",card:"#22223a",text:"#e0e0e0",textSoft:"#b0b0c0",textMuted:"#707080",border:"#333350",borderSoft:"#2a2a45",headerBg:"#22223a",headerBorder:"#333350",rowHover:"#2a2a48",rowAlt:"#252540",input:"#2a2a45",inputBorder:"#444460",panelBg:"#22223a",toolbarBg:"#22223a"},};
 
-const APP_VERSION="3.8.3";
-const ts=()=>new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});
-const CL=["#579bfc","#00c875","#a25ddc","#fdab3d","#e2445c","#037f4c","#ff642e","#00d2d2","#bb3354","#175a63"];
-const SC={"Done":"#00c875","Working on it":"#fdab3d","Stuck":"#e2445c","Not Started":"#c4c4c4","Future steps":"#a25ddc","In Progress":"#0073ea","Waiting":"#7c5cfc","Review":"#037f4c"};
-const PC={"Critical":"#333","High":"#e2445c","Medium":"#fdab3d","Low":"#579bfc","No Priority":"#c4c4c4"};
-const COMP_SC={"Done On Time":C.green,"Done Late":C.red,"In Progress":C.orange,"-":"#c4c4c4"};
-const COMP_STATS=["Done On Time","Done Late","In Progress","-"];
-const TL_TYPES=["Soft Date","Firm Date","TBD"];
-const TL_TYPE_C={"Soft Date":C.orange,"Firm Date":C.red,"TBD":"#c4c4c4"};
-const CUSTOMERS=["Infrastructure","Marketing","Engineering","HR","Finance","Legal"];
-const CUST_C={"Infrastructure":C.green,"Marketing":C.orange,"Engineering":C.sky,"HR":C.violet,"Finance":"#ff642e","Legal":C.red};
-const TEAMS=["Alpha","Beta","Gamma","Delta"];
-const AVATAR_COLORS=[C.purple,"#0984e3","#00b894","#e17055","#d63031","#fdcb6e","#e84393","#00cec9","#636e72","#2d3436"];
-const ROLES=["Admin","Member","Viewer"];
-const ROLE_COLORS={"Admin":C.purple,"Member":"#0984e3","Viewer":"#c4c4c4"};
-const DEFAULT_TEAM=[
+const APP_VERSION="3.9.1";const ts=()=>new Date().toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"});const CL=["#579bfc","#00c875","#a25ddc","#fdab3d","#e2445c","#037f4c","#ff642e","#00d2d2","#bb3354","#175a63"];
+const SC={"Done":"#00c875","Working on it":"#fdab3d","Stuck":"#e2445c","Not Started":"#c4c4c4","Future steps":"#a25ddc","In Progress":"#0073ea","Waiting":"#7c5cfc","Review":"#037f4c"};const PC={"Critical":"#333","High":"#e2445c","Medium":"#fdab3d","Low":"#579bfc","No Priority":"#c4c4c4"};const COMP_SC={"Done On Time":C.green,"Done Late":C.red,"In Progress":C.orange,"-":"#c4c4c4"};
+const COMP_STATS=["Done On Time","Done Late","In Progress","-"];const TL_TYPES=["Soft Date","Firm Date","TBD"];const TL_TYPE_C={"Soft Date":C.orange,"Firm Date":C.red,"TBD":"#c4c4c4"};const CUSTOMERS=["Infrastructure","Marketing","Engineering","HR","Finance","Legal"];const CUST_C={"Infrastructure":C.green,"Marketing":C.orange,"Engineering":C.sky,"HR":C.violet,"Finance":"#ff642e","Legal":C.red};
+const TEAMS=["Alpha","Beta","Gamma","Delta"];const AVATAR_COLORS=[C.purple,"#0984e3","#00b894","#e17055","#d63031","#fdcb6e","#e84393","#00cec9","#636e72","#2d3436"];const ROLES=["Admin","Member","Viewer"];const ROLE_COLORS={"Admin":C.purple,"Member":"#0984e3","Viewer":"#c4c4c4"};const DEFAULT_TEAM=[
   {id:"u_1",name:"Alex M.",email:"alex@company.com",role:"Admin",color:C.purple,online:true,lastSeen:"Just now"},
   {id:"u_2",name:"Sarah K.",email:"sarah@company.com",role:"Member",color:"#0984e3",online:true,lastSeen:"Just now"},
   {id:"u_3",name:"Tom W.",email:"tom@company.com",role:"Member",color:"#00b894",online:false,lastSeen:"2h ago"},
@@ -172,28 +149,19 @@ const DCOLS=[
   {id:"status",name:"Status",type:"status",w:120},{id:"priority",name:"Priority",type:"priority",w:120},
   {id:"timeline",name:"Timeline",type:"timeline",w:180},{id:"duration",name:"Duration",type:"duration",w:90},
   {id:"tags",name:"Tags",type:"tags",w:90},{id:"timetracked",name:"Time Tracked",type:"timer",w:110},];
-const cloneCols=(c)=>c.map(x=>({...x}));
-const PEOPLE=["Alex M.","Sarah K.","James L.","Nina R.","Tom W.","Chris D.","Pat G."];
-const STATS=["Done","Working on it","Stuck","Not Started","Future steps","In Progress","Waiting","Review"];
-const PRIS=["Critical","High","Medium","Low","No Priority"];
-const TAGS=["Urgent","Bug","Feature","Review","Docs","Security","Infra","Migration"];
-const TAG_SC={"Urgent":"#e2445c","Bug":"#ff642e","Feature":"#579bfc","Review":"#a25ddc","Docs":"#00c875","Security":"#333","Infra":"#fdab3d","Migration":"#0073ea","Design":"#579bfc","Engineering":"#00c875","Marketing":"#fdab3d","Legal":"#e2445c","QA":"#037f4c"};
-const DD_COLORS=[C.sky,C.green,C.orange,C.red,C.violet,"#037f4c","#ff642e","#00d2d2","#bb3354","#c4c4c4"];
+const cloneCols=(c)=>c.map(x=>({...x}));const PEOPLE=["Alex M.","Sarah K.","James L.","Nina R.","Tom W.","Chris D.","Pat G."];const STATS=["Done","Working on it","Stuck","Not Started","Future steps","In Progress","Waiting","Review"];const PRIS=["Critical","High","Medium","Low","No Priority"];const TAGS=["Urgent","Bug","Feature","Review","Docs","Security","Infra","Migration"];
+const TAG_SC={"Urgent":"#e2445c","Bug":"#ff642e","Feature":"#579bfc","Review":"#a25ddc","Docs":"#00c875","Security":"#333","Infra":"#fdab3d","Migration":"#0073ea","Design":"#579bfc","Engineering":"#00c875","Marketing":"#fdab3d","Legal":"#e2445c","QA":"#037f4c"};const DD_COLORS=[C.sky,C.green,C.orange,C.red,C.violet,"#037f4c","#ff642e","#00d2d2","#bb3354","#c4c4c4"];
 const DATA_FIELDS=["task","owner","status","priority","tlStart","tlEnd","tags","timetracked","updates","activity","files","weeklyStatus","weeklyUpdate","completionDate","completionStatus","dependentOn","plannedEffort","effortSpent","subitems","notes"];
 const mk=(d={})=>{const base={id:uid(),task:"",owner:"",status:"Not Started",priority:"No Priority",tlStart:"",tlEnd:"",tags:[],timetracked:0,checked:false,updates:[],activity:[],files:[],weeklyStatus:"",weeklyUpdate:"",completionDate:"",completionStatus:"-",dependentOn:"",plannedEffort:"",effortSpent:"",subitems:[],notes:"",...d};/* Build values map from data fields */const vals={};DATA_FIELDS.forEach(k=>{if(base[k]!==undefined)vals[k]=base[k];});base.values=vals;return base;};
 /* ─── Row value compatibility layer (Phase 1 of values migration) ─── */
 const rv=(row,key)=>{if(!row)return undefined;if(row.values&&key in row.values)return row.values[key];return row[key];};
 const rvArr=(row,key)=>{const v=rv(row,key);return Array.isArray(v)?v:[];};
 const _patchVals=(row)=>{if(!row||!row.values)return row;const v={...row.values};DATA_FIELDS.forEach(k=>{if(row[k]!==undefined)v[k]=row[k];});return{...row,values:v};};
-const mkSub=(d={})=>({id:uid(),task:"",owner:"",status:"Not Started",checked:false,...d});
-const mkU=(t,a="System")=>({id:uid(),text:t,author:a,time:ts()});
+const mkSub=(d={})=>({id:uid(),task:"",owner:"",status:"Not Started",checked:false,...d});const mkU=(t,a="System")=>({id:uid(),text:t,author:a,time:ts()});
 
 /* ─── BOARD SYNC ENGINE ─── */
 function computeBoardStats(board){
-  const all=board.groups.flatMap(g=>g.rows);const total=all.length;
-  const done=all.filter(i=>rv(i,"status")==="Done").length;
-  const progress=total?Math.round((done/total)*100):0;
-  const latestUpdate=all.filter(i=>rv(i,"weeklyUpdate")||rv(i,"weeklyStatus")).map(i=>rv(i,"weeklyUpdate")||rv(i,"weeklyStatus")).pop()||"";
+  const all=board.groups.flatMap(g=>g.rows);const total=all.length;const done=all.filter(i=>rv(i,"status")==="Done").length;const progress=total?Math.round((done/total)*100):0;const latestUpdate=all.filter(i=>rv(i,"weeklyUpdate")||rv(i,"weeklyStatus")).map(i=>rv(i,"weeklyUpdate")||rv(i,"weeklyStatus")).pop()||"";
   let derivedStatus="Not Started";
   if(done===total&&total>0)derivedStatus="Done";
   else if(done>0||all.some(i=>rv(i,"status")==="In Progress"||rv(i,"status")==="Working on it"))derivedStatus="In Progress";
@@ -254,9 +222,7 @@ function reverseSyncFromMain(boards,mainBoardId,rowTask,field,value,logSync){
     return b;});}
 
 function syncRowToPortfolio(boards,taskBoardId,gId,rowId,logSync){
-  const taskBoard=boards.find(b=>b.id===taskBoardId);if(!taskBoard)return boards;
-  const mainBoard=boards.find(b=>isPortfolio(b));if(!mainBoard)return boards;
-  const row=taskBoard.groups.flatMap(g=>g.rows).find(r=>r.id===rowId);if(!row)return boards;
+  const taskBoard=boards.find(b=>b.id===taskBoardId);if(!taskBoard)return boards;const mainBoard=boards.find(b=>isPortfolio(b));if(!mainBoard)return boards;const row=taskBoard.groups.flatMap(g=>g.rows).find(r=>r.id===rowId);if(!row)return boards;
 
   const existing=mainBoard.groups.flatMap(g=>g.rows).find(r=>rv(r,"task")===rv(row,"task"));
   if(existing){
@@ -278,9 +244,7 @@ function syncRowToPortfolio(boards,taskBoardId,gId,rowId,logSync){
 
 /* Sync entire board to portfolio — create or update a portfolio row for the board */
 function syncBoardToPortfolio(boards,taskBoardId,logSync){
-  const taskBoard=boards.find(b=>b.id===taskBoardId);if(!taskBoard||isPortfolio(taskBoard))return boards;
-  const mainBoard=boards.find(b=>isPortfolio(b));if(!mainBoard)return boards;
-  const stats=computeBoardStats(taskBoard);
+  const taskBoard=boards.find(b=>b.id===taskBoardId);if(!taskBoard||isPortfolio(taskBoard))return boards;const mainBoard=boards.find(b=>isPortfolio(b));if(!mainBoard)return boards;const stats=computeBoardStats(taskBoard);
 
   const existing=mainBoard.groups.flatMap(g=>g.rows).find(r=>rv(r,"task")===taskBoard.name);
   let result=boards;
@@ -301,14 +265,12 @@ function syncBoardToPortfolio(boards,taskBoardId,logSync){
   return result;}
 const calcDur=(s,e,long)=>{if(!s||!e)return"";const d=Math.ceil((new Date(e)-new Date(s))/(864e5));return d>0?(long?(d===1?"1 day":d+" days"):d+"d"):"";};
 const fmtTL=(s,e)=>{if(!s&&!e)return"";const f=d=>{const p=new Date(d);return p.toLocaleDateString("en-US",{month:"short",day:"numeric"});};if(s&&e){const ds=new Date(s),de=new Date(e);if(ds.getMonth()===de.getMonth()&&ds.getFullYear()===de.getFullYear())return f(s).split(" ")[0]+" "+ds.getDate()+" - "+de.getDate();return f(s)+" - "+f(e);}return f(s||e);};
-const today=()=>new Date().toISOString().split("T")[0];
-const isOverdue=(r)=>rv(r,"tlEnd")&&rv(r,"status")!=="Done"&&new Date(rv(r,"tlEnd"))<new Date(today());
+const today=()=>new Date().toISOString().split("T")[0];const isOverdue=(r)=>rv(r,"tlEnd")&&rv(r,"status")!=="Done"&&new Date(rv(r,"tlEnd"))<new Date(today());
 
-const DEF_CATS=["ACTIVE","IN PROGRESS","COMPLETED","STALLED","ON HOLD"];
-const CAT_ICONS={"ACTIVE":"🟢","IN PROGRESS":"🔵","COMPLETED":"✅","STALLED":"🟡","ON HOLD":"⏸️"};
+const DEF_CATS=["ACTIVE","IN PROGRESS","COMPLETED","STALLED","ON HOLD"];const CAT_ICONS={"ACTIVE":"🟢","IN PROGRESS":"🔵","COMPLETED":"✅","STALLED":"🟡","ON HOLD":"⏸️"};
 
 const BOARD_TEMPLATES=[
-  {name:"IT Project",icon:"💻",groups:[{name:"Backlog",color:"#c4c4c4"},{name:"Sprint",color:C.sky},{name:"In Review",color:C.orange},{name:"Released",color:C.green}]},
+  {name:"IT Project",icon:"💻",groups:[{name:"Backlog",color:C.grey},{name:"Sprint",color:C.sky},{name:"In Review",color:C.orange},{name:"Released",color:C.green}]},
   {name:"Helpdesk Tracker",icon:"🎫",groups:[{name:"New Tickets",color:C.red},{name:"In Progress",color:C.sky},{name:"Resolved",color:C.green}]},
   {name:"Infrastructure",icon:"🔧",groups:[{name:"Planning",color:C.violet},{name:"Procurement",color:C.orange},{name:"Implementation",color:C.sky},{name:"Monitoring",color:C.green}]},
   {name:"Security Audit",icon:"🔒",groups:[{name:"Findings",color:C.red},{name:"Remediation",color:C.orange},{name:"Verified",color:C.green}]},
@@ -316,8 +278,7 @@ const BOARD_TEMPLATES=[
   {name:"Dashboard",icon:"📊",type:BT.DASH,isDashboard:true,groups:[]},
   {name:"Executive Summary",icon:"📑",type:BT.SUMMARY,isSummary:true,groups:[]},];
 
-const INIT_WS=[{id:"ws_it",name:"IT Operations",icon:"💻",owner:"u_admin",shared:[{userId:"u_2",access:"write"},{userId:"u_3",access:"read"}]},{id:"ws_sec",name:"Cybersecurity",icon:"🔒",owner:"u_admin",shared:[{userId:"u_2",access:"write"}]},{id:"ws_infra",name:"Infrastructure",icon:"🏗️",owner:"u_admin",shared:[]}];
-const IBOARDS=[
+const INIT_WS=[{id:"ws_it",name:"IT Operations",icon:"💻",owner:"u_admin",shared:[{userId:"u_2",access:"write"},{userId:"u_3",access:"read"}]},{id:"ws_sec",name:"Cybersecurity",icon:"🔒",owner:"u_admin",shared:[{userId:"u_2",access:"write"}]},{id:"ws_infra",name:"Infrastructure",icon:"🏗️",owner:"u_admin",shared:[]}];const IBOARDS=[
   {id:"b_portfolio",name:"IT Portfolio 2026",desc:"All active IT projects — status & progress auto-synced from linked boards",cat:"ACTIVE",wsId:"ws_it",icon:"📊",type:BT.PORTFOLIO,isMain:true,owner:"u_admin",shared:[],hist:[],columns:cloneCols(MAIN_COLS),groups:[
     {id:"g_ap",name:"Active Projects",color:C.purple,collapsed:false,rows:[
       {...mk({task:"M365 Tenant Migration",owner:"Alex M.",status:"In Progress",priority:"Critical",weeklyUpdate:"50 mailboxes migrated this week, 200 remaining. MX cutover scheduled Friday."}),timeline:"Firm Date",customer:"Infrastructure",team:"Alpha",projectProgress:55},
@@ -363,8 +324,7 @@ const IBOARDS=[
     {id:"g_d1",name:"Preparation",color:C.red,collapsed:false,rows:[
       mk({task:"Validate ASR replication health",owner:"Chris D.",status:"Done",priority:"Critical",tlStart:"2026-02-15",tlEnd:"2026-02-18",tags:["Infra"]}),
       mk({task:"Update DR runbook",owner:"James L.",status:"Done",priority:"High",tlStart:"2026-02-18",tlEnd:"2026-02-21",tags:["Docs"]}),
-      mk({task:"WAN circuit validation at DR site",owner:"Tom W.",status:"Stuck",priority:"Critical",tlStart:"2026-02-22",tlEnd:"2026-02-25",tags:["Infra","Urgent"],updates:[mkU("Circuit showing 40% packet loss — vendor escalated","Tom W."),mkU("Vendor ETA: 5 business days for tech dispatch","Chris D.")]}),
-    ]},
+      mk({task:"WAN circuit validation at DR site",owner:"Tom W.",status:"Stuck",priority:"Critical",tlStart:"2026-02-22",tlEnd:"2026-02-25",tags:["Infra","Urgent"],updates:[mkU("Circuit showing 40% packet loss — vendor escalated","Tom W."),mkU("Vendor ETA: 5 business days for tech dispatch","Chris D.")]}),]},
     {id:"g_d2",name:"Failover Execution",color:C.sky,collapsed:true,rows:[
       mk({task:"Failover — Domain Controllers",owner:"Alex M.",status:"Not Started",priority:"Critical",tags:["Infra"]}),
       mk({task:"Failover — SQL cluster",owner:"James L.",status:"Not Started",priority:"Critical",tags:["Infra"]}),
@@ -440,21 +400,20 @@ const EmptyState=memo(({icon,title,sub,action,onAction})=>(<div data-empty-state
   <div style={{fontSize:13,color:V.tMut,maxWidth:280,margin:"0 auto",lineHeight:1.5}}>{sub}</div>
   {action&&<button onClick={onAction} style={{marginTop:14,padding:"7px 20px",borderRadius:6,border:"none",background:C.blue,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:600}}>{action}</button>}</div>));
 
-const SidePanel=({title,sub,onClose,children,width=420})=>(<div style={{position:"fixed",right:0,top:0,bottom:0,width,background:V.card,boxShadow:"-4px 0 20px rgba(0,0,0,.12)",zIndex:100000,display:"flex",flexDirection:"column",animation:"slideIn .25s cubic-bezier(.25,.8,.25,1)"}}><style>{`@keyframes slideIn{from{transform:translateX(100%);opacity:.5}to{transform:translateX(0);opacity:1}}`}</style>
-  <div style={{padding:"16px 20px",borderBottom:"1px solid #eee",display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:16,fontWeight:700,..._ell}}>{title}</div>{sub&&<div style={{fontSize:12,color:V.tMut8,marginTop:2}}>{sub}</div>}</div><span onClick={onClose} style={{cursor:"pointer",fontSize:18,color:V.tMut,flexShrink:0,marginLeft:12}}>✕</span></div>{children}
+const SidePanel=({title,sub,onClose,children,width=420})=>(<div data-side-panel style={{position:"fixed",right:0,top:0,bottom:0,width,background:V.card,boxShadow:"-4px 0 20px rgba(0,0,0,.12)",zIndex:100000,display:"flex",flexDirection:"column",animation:"slideIn .25s cubic-bezier(.25,.8,.25,1)"}}><style>{`@keyframes slideIn{from{transform:translateX(100%);opacity:.5}to{transform:translateX(0);opacity:1}}`}</style>
+  <div style={{padding:"16px 20px",borderBottom:B.bdrS,display:"flex",alignItems:"center",justifyContent:"space-between"}}><div style={{flex:1,minWidth:0}}><div style={{fontSize:16,fontWeight:700,..._ell}}>{title}</div>{sub&&<div style={{fontSize:12,color:V.tMut8,marginTop:2}}>{sub}</div>}</div><span onClick={onClose} style={{cursor:"pointer",fontSize:18,color:V.tMut,flexShrink:0,marginLeft:12}}>✕</span></div>{children}
 </div>);
 
 const TimelineCell=({row,onChange})=>{
   const [hov,setHov]=useState(false);const [ed,setEd]=useState(false);const od=isOverdue(row);
-  const has=rv(row,"tlStart")&&rv(row,"tlEnd");const label=fmtTL(rv(row,"tlStart"),rv(row,"tlEnd"));const dur=calcDur(rv(row,"tlStart"),rv(row,"tlEnd"),true);
-  const bg=od?C.red:SC[rv(row,"status")]||C.sky;
+  const has=rv(row,"tlStart")&&rv(row,"tlEnd");const label=fmtTL(rv(row,"tlStart"),rv(row,"tlEnd"));const dur=calcDur(rv(row,"tlStart"),rv(row,"tlEnd"),true);const bg=od?C.red:SC[rv(row,"status")]||C.sky;
   if(ed) return(<div style={{..._fc,gap:2,width:"100%",padding:"2px"}}><input type="date" value={rv(row,"tlStart")||""} onChange={e=>onChange("tlStart",e.target.value)} style={{border:"none",background:"transparent",fontSize:11,outline:"none",width:82,padding:1}}/><span style={{color:"#aaa",fontSize:9}}>→</span><input type="date" value={rv(row,"tlEnd")||""} onChange={e=>onChange("tlEnd",e.target.value)} onBlur={()=>setTimeout(()=>setEd(false),200)} style={{border:"none",background:"transparent",fontSize:11,outline:"none",width:82,padding:1}}/></div>);
   return(<div onClick={()=>setEd(true)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} style={{width:"100%",padding:"3px 4px",cursor:"pointer",position:"relative"}}>
     {has?(<div style={{background:bg,borderRadius:4,padding:"4px 8px",textAlign:"center",color:"#fff",fontSize:11,fontWeight:600,position:"relative",whiteSpace:"nowrap"}}>{od&&"⚠ "}{label}
       {hov&&<div style={{position:"absolute",top:-30,left:"50%",transform:"translateX(-50%)",background:"#333",color:"#fff",padding:"3px 10px",borderRadius:4,fontSize:11,whiteSpace:"nowrap",zIndex:10,pointerEvents:"none"}}>{dur}{od?" · OVERDUE":""}</div>}
     </div>):(<div style={{color:"#ccc",fontSize:12,textAlign:"center"}}>—</div>)}</div>);};
 const StatusCell=({val,onChange,statuses,setStatuses})=>{
-  const ref=useRef(null);const [open,setOpen]=useState(false);const [hov,setHov]=useState(false);const bg=SC[val]||"#c4c4c4";
+  const ref=useRef(null);const [open,setOpen]=useState(false);const [hov,setHov]=useState(false);const bg=SC[val]||C.grey;
   return([<div key="s" ref={ref} onClick={()=>setOpen(!open)} onMouseEnter={()=>setHov(true)} onMouseLeave={()=>setHov(false)} data-status-pill style={{padding:"4px 6px",borderRadius:4,background:bg,color:"#fff",textAlign:"center",cursor:"pointer",fontSize:12,fontWeight:600,width:"100%",position:"relative",transition:"filter .15s"}}>
     {val||"—"}
     {hov&&val!=="Done"&&<div onClick={e=>{e.stopPropagation();onChange("status","Done");}} style={{position:"absolute",right:-2,top:"50%",transform:"translateY(-50%)",width:18,height:18,borderRadius:3,background:V.card,..._fcc,boxShadow:"0 1px 4px rgba(0,0,0,.15)",zIndex:5,cursor:"pointer"}}><span style={{color:C.green,fontSize:10,fontWeight:800}}>✓</span></div>}
@@ -471,21 +430,21 @@ const Cell=memo(({col,row,onChange,onOpenUpdates,onOpenDetail,readonly,onEditLab
   const {people,setPeople,bStatuses:statuses,setBoardStatuses:setStatuses,bPriorities:priorities,setBoardPriorities:setPriorities,allTags,setAllTags}=useSlate()||{people:[],setPeople:()=>{},bStatuses:[],setBoardStatuses:()=>{},bPriorities:[],setBoardPriorities:()=>{},allTags:[],setAllTags:()=>{}};
   const ref=useRef(null);const [open,setOpen]=useState(false);const val=col.id==="updates"?rvArr(row,"updates"):rv(row,col.id);const od=isOverdue(row);
   if(readonly&&col.type!=="updates"){
-    const syncBadge=col.id==="task"?<span style={{marginLeft:4,fontSize:9,color:C.violet,background:"#f0eeff",padding:"1px 5px",borderRadius:3,fontWeight:600,flexShrink:0}}>⇄ synced</span>:null;
-    if(col.type==="status"){const bg=SC[val]||"#c4c4c4";return(<div style={{..._fc,gap:4,width:"100%"}}><div data-status-pill style={{padding:"4px 6px",borderRadius:4,background:bg,color:"#fff",textAlign:"center",fontSize:12,fontWeight:600,flex:1,opacity:.8}}>{val||"—"} 🔒</div></div>);}
-    if(col.type==="priority"){const bg=PC[val]||"#c4c4c4";return(<div style={{padding:"4px 6px",borderRadius:4,background:val&&val!=="No Priority"?bg:"transparent",color:val&&val!=="No Priority"?"#fff":"#aaa",textAlign:"center",fontSize:12,fontWeight:500,opacity:.8}}>{val&&val!=="No Priority"?val:"—"} 🔒</div>);}
+    const syncBadge=col.id==="task"?<span style={{marginLeft:4,fontSize:9,color:C.violet,background:C.hlPurp,padding:"1px 5px",borderRadius:3,fontWeight:600,flexShrink:0}}>⇄ synced</span>:null;
+    if(col.type==="status"){const bg=SC[val]||C.grey;return(<div style={{..._fc,gap:4,width:"100%"}}><div data-status-pill style={{padding:"4px 6px",borderRadius:4,background:bg,color:"#fff",textAlign:"center",fontSize:12,fontWeight:600,flex:1,opacity:.8}}>{val||"—"} 🔒</div></div>);}
+    if(col.type==="priority"){const bg=PC[val]||C.grey;return(<div style={{padding:"4px 6px",borderRadius:4,background:val&&val!=="No Priority"?bg:"transparent",color:val&&val!=="No Priority"?"#fff":"#aaa",textAlign:"center",fontSize:12,fontWeight:500,opacity:.8}}>{val&&val!=="No Priority"?val:"—"} 🔒</div>);}
     if(col.type==="person"){const ini=Initials(val);const ci=people.indexOf(val);return(<div style={{..._fcc,width:"100%",opacity:.8}}>{val?<span title={val+" (synced)"} style={{width:28,height:28,borderRadius:"50%",background:CL[Math.abs(ci)%CL.length],color:"#fff",..._fcc,fontSize:11,fontWeight:700}}>{ini}</span>:<span style={{color:"#ccc",fontSize:12}}>—</span>}</div>);}
     if(col.type==="timeline") return(<div style={{padding:"4px 6px",fontSize:12,color:V.tMut8,opacity:.8}}>{fmtTL(rv(row,"tlStart"),rv(row,"tlEnd"))||"—"} 🔒</div>);
     return(<div style={{..._fc,width:"100%",padding:"6px 8px",fontSize:13,color:V.tMut8,opacity:.8}}><span style={{flex:1}}>{String(val||"—")}</span>{syncBadge}<span style={{fontSize:9,color:"#ccc",marginLeft:2}}>🔒</span></div>);}
-  if(col.type==="text"){const subs=col.id==="task"?rvArr(row,"subitems"):[];const subT=subs.length;const subD=subs.filter(s=>rv(s,"status")==="Done").length;return(<div style={{..._fc,width:"100%"}}><DInput value={val} onChange={v=>onChange(col.id,v)} style={{flex:1,border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none",color:od&&col.id==="task"?C.red:"#333",fontWeight:od&&col.id==="task"?600:400}}/>{col.id==="task"&&subT>0&&<span title={subD+"/"+subT+" subitems done"} style={{..._fc,gap:3,flexShrink:0,marginRight:4}}><span style={{width:24,height:4,borderRadius:2,background:"#e6e9ef",overflow:"hidden",display:"inline-block"}}><span style={{width:Math.round(subD/subT*100)+"%",height:4,borderRadius:2,background:subD===subT?C.green:C.blue,display:"block"}}/></span><span style={{fontSize:9,color:V.tMut}}>{subD}/{subT}</span></span>}{col.id==="task"&&onOpenDetail&&<span onClick={e=>{e.stopPropagation();onOpenDetail();}} style={{cursor:"pointer",fontSize:11,color:"#bbb",padding:"0 4px",flexShrink:0,opacity:.6,transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=.6} title="Open">↗</span>}</div>);}
+  if(col.type==="text"){const subs=col.id==="task"?rvArr(row,"subitems"):[];const subT=subs.length;const subD=subs.filter(s=>rv(s,"status")==="Done").length;return(<div style={{..._fc,width:"100%"}}><DInput value={val} onChange={v=>onChange(col.id,v)} style={{flex:1,border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none",color:od&&col.id==="task"?C.red:"#333",fontWeight:od&&col.id==="task"?600:400}}/>{col.id==="task"&&subT>0&&<span title={subD+"/"+subT+" subitems done"} style={{..._fc,gap:3,flexShrink:0,marginRight:4}}><span style={{width:24,height:4,borderRadius:2,background:C.hlGrey,overflow:"hidden",display:"inline-block"}}><span style={{width:Math.round(subD/subT*100)+"%",height:4,borderRadius:2,background:subD===subT?C.green:C.blue,display:"block"}}/></span><span style={{fontSize:9,color:V.tMut}}>{subD}/{subT}</span></span>}{col.id==="task"&&onOpenDetail&&<span onClick={e=>{e.stopPropagation();onOpenDetail();}} style={{cursor:"pointer",fontSize:11,color:"#bbb",padding:"0 4px",flexShrink:0,opacity:.6,transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=1} onMouseLeave={e=>e.currentTarget.style.opacity=.6} title="Open">↗</span>}</div>);}
   if(col.type==="number") return(<DInput type="number" value={val} onChange={v=>onChange(col.id,v)} style={{width:"100%",border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none"}}/>);
   if(col.type==="timeline") return(<TimelineCell row={row} onChange={onChange}/>);
   if(col.type==="duration"){const d=calcDur(rv(row,"tlStart"),rv(row,"tlEnd")); return(<div style={{padding:"6px 8px",fontSize:13,color:d?"#333":"#ccc"}}>{d||"—"}</div>);}
   if(col.type==="updates"){const ct=Array.isArray(val)?val.length:0; return(<div onClick={onOpenUpdates} style={{..._fcc,width:"100%",cursor:"pointer"}}>{ct>0?<span style={{background:C.blue,color:"#fff",borderRadius:12,padding:"2px 8px",fontSize:11,fontWeight:700}}>💬{ct}</span>:<span style={{color:"#ccc",fontSize:14}}>💬</span>}</div>);}
   if(col.type==="status") return(<StatusCell val={val} onChange={onChange} statuses={statuses} setStatuses={setStatuses}/>);
-  if(col.type==="priority"){const np=val==="No Priority";const bg=PC[val]||"#c4c4c4"; return([<div key="p" ref={ref} onClick={()=>setOpen(!open)} style={{padding:"4px 6px",borderRadius:4,background:np?"transparent":bg,color:np?"#888":"#fff",textAlign:"center",cursor:"pointer",fontSize:12,fontWeight:500,width:"100%",border:np?"1px dashed #ccc":"none"}}>{np?"":val}</div>,<EDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} items={priorities} cmap={PC} label="Priority" onSelect={v=>onChange(col.id,v)} oc={setPriorities}/>]);}
+  if(col.type==="priority"){const np=val==="No Priority";const bg=PC[val]||C.grey; return([<div key="p" ref={ref} onClick={()=>setOpen(!open)} style={{padding:"4px 6px",borderRadius:4,background:np?"transparent":bg,color:np?"#888":"#fff",textAlign:"center",cursor:"pointer",fontSize:12,fontWeight:500,width:"100%",border:np?"1px dashed #ccc":"none"}}>{np?"":val}</div>,<EDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} items={priorities} cmap={PC} label="Priority" onSelect={v=>onChange(col.id,v)} oc={setPriorities}/>]);}
   if(col.type==="person"){const ini=Initials(val);const ci=people.indexOf(val); return([<div key="p" ref={ref} onClick={()=>setOpen(!open)} style={{cursor:"pointer",..._fcc,width:"100%"}}>{val?<span title={val} style={{width:28,height:28,borderRadius:"50%",background:CL[Math.abs(ci)%CL.length],color:"#fff",..._fcc,fontSize:11,fontWeight:700,transition:"transform .15s"}} onMouseEnter={e=>e.currentTarget.style.transform="scale(1.1)"} onMouseLeave={e=>e.currentTarget.style.transform="scale(1)"}>{ini}</span>:<span style={{width:28,height:28,borderRadius:"50%",border:"1.5px dashed #ccc",..._fcc,fontSize:14,color:"#ccc"}}>+</span>}</div>,<EDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} items={people} label="Person" onSelect={v=>onChange(col.id,v)} oc={setPeople}/>]);}
-  if(col.type==="tags"){const tv=Array.isArray(val)?val:[];return([<div key="t" ref={ref} onClick={()=>setOpen(!open)} style={{cursor:"pointer",fontSize:12,color:V.tMut,padding:"4px 6px",width:"100%"}}>{tv.length>0?tv.map(t=><span key={t} style={{background:"#e6f0ff",color:C.blue,padding:"1px 5px",borderRadius:3,marginRight:2,fontSize:11}}>{t}</span>):"+"}</div>,<TDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} allTags={allTags} sel={tv} onToggle={t=>{onChange(col.id,tv.includes(t)?tv.filter(x=>x!==t):[...tv,t]);}} oc={setAllTags}/>]);}
+  if(col.type==="tags"){const tv=Array.isArray(val)?val:[];return([<div key="t" ref={ref} onClick={()=>setOpen(!open)} style={{cursor:"pointer",fontSize:12,color:V.tMut,padding:"4px 6px",width:"100%"}}>{tv.length>0?tv.map(t=><span key={t} style={{background:C.hlBlue,color:C.blue,padding:"1px 5px",borderRadius:3,marginRight:2,fontSize:11}}>{t}</span>):"+"}</div>,<TDD key="d" anchorRef={ref} open={open} onClose={()=>setOpen(false)} allTags={allTags} sel={tv} onToggle={t=>{onChange(col.id,tv.includes(t)?tv.filter(x=>x!==t):[...tv,t]);}} oc={setAllTags}/>]);}
   if(col.type==="dropdown"){
     const labels=col.labels||["Option 1","Option 2","Option 3"];const lc={};labels.forEach((l,i)=>{lc[l]=DD_COLORS[i%DD_COLORS.length];});
     const bg=lc[val]||"transparent";const [adding,setAdding]=useState(false);const [nLabel,setNLabel]=useState("");
@@ -496,7 +455,7 @@ const Cell=memo(({col,row,onChange,onOpenUpdates,onOpenDetail,readonly,onEditLab
           <span style={{width:12,height:12,borderRadius:3,background:DD_COLORS[i%DD_COLORS.length],flexShrink:0}}/>
           <span style={{fontSize:13,flex:1}}>{l}</span>
           {val===l&&<span style={{color:C.blue,fontSize:11}}>✓</span>}</div>))}
-        {val&&<div onClick={()=>{onChange(col.id,"");setOpen(false);}} style={{padding:"5px 8px",borderRadius:4,cursor:"pointer",fontSize:12,color:C.red,borderTop:B.bdrS,marginTop:4}} onMouseEnter={e=>e.currentTarget.style.background="#fff0f0"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>✕ Clear</div>}
+        {val&&<div onClick={()=>{onChange(col.id,"");setOpen(false);}} style={{padding:"5px 8px",borderRadius:4,cursor:"pointer",fontSize:12,color:C.red,borderTop:B.bdrS,marginTop:4}} onMouseEnter={e=>e.currentTarget.style.background=C.errBg} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>✕ Clear</div>}
         <div style={{borderTop:B.bdrS,marginTop:4,paddingTop:4}}>
           {adding?<div style={{display:"flex",gap:4,padding:"4px 6px"}}><input value={nLabel} onChange={e=>setNLabel(e.target.value)} onKeyDown={e=>{if(e.key==="Enter"&&nLabel.trim()){if(onEditLabels)onEditLabels(col.id,[...labels,nLabel.trim()]);setNLabel("");setAdding(false);}}} placeholder="Label name..." style={{flex:1,padding:"4px 6px",border:"1px solid #ccc",borderRadius:4,fontSize:12,outline:"none"}} autoFocus/><span onClick={()=>setAdding(false)} style={{cursor:"pointer",color:V.tMut,fontSize:14,padding:"2px"}}>✕</span></div>
           :<div onClick={()=>setAdding(true)} style={{padding:"5px 8px",color:C.blue,cursor:"pointer",fontSize:12}}>+ Add label</div>}</div>
@@ -516,10 +475,10 @@ const UpdateInput=({onPost,people=[]})=>{const[t,st]=useState("");const[mentionO
   return(<div style={{position:"relative"}}><div style={{display:"flex",gap:8}}><input ref={ref} value={t} onChange={onChange} onKeyDown={onKey} placeholder="Write an update... @mention people" style={{flex:1,padding:"8px 12px",border:B.inp,borderRadius:6,fontSize:13,outline:"none"}} onFocus={e=>e.currentTarget.style.borderColor=C.blue} onBlur={e=>{e.currentTarget.style.borderColor="#ddd";setTimeout(()=>setMentionOpen(false),150);}}/><button onClick={()=>{if(t.trim()){onPost(t.trim());st("");}}} style={{background:C.blue,color:"#fff",border:"none",borderRadius:6,padding:"8px 16px",cursor:"pointer",fontSize:13,fontWeight:600}}>Post</button></div>
     {mentionOpen&&filtered.length>0&&<div style={{position:"absolute",bottom:"100%",left:0,marginBottom:4,background:V.card,border:B.bdr,borderRadius:8,boxShadow:"0 4px 16px rgba(0,0,0,.12)",width:220,zIndex:10,overflow:"hidden"}}>
       <div style={{padding:"6px 10px",fontSize:10,color:V.tMut,fontWeight:600,borderBottom:B.bdrS}}>Mention someone</div>
-      {filtered.map((p,i)=>(<div key={p} onClick={()=>insertMention(p)} style={{padding:"7px 12px",fontSize:13,cursor:"pointer",background:i===mentionIdx?"#e6f0ff":"transparent",..._fc,gap:8}} onMouseEnter={()=>setMentionIdx(i)}>
+      {filtered.map((p,i)=>(<div key={p} onClick={()=>insertMention(p)} style={{padding:"7px 12px",fontSize:13,cursor:"pointer",background:i===mentionIdx?C.hlBlue:"transparent",..._fc,gap:8}} onMouseEnter={()=>setMentionIdx(i)}>
         <div style={{width:22,height:22,borderRadius:"50%",background:CL[people.indexOf(p)%CL.length],color:"#fff",..._fcc,fontSize:9,fontWeight:700,flexShrink:0}}>{Initials(p)}</div>
         <span>{p}</span></div>))}</div>}</div>);};
-const renderMentionText=(text,people)=>{if(!text||!text.includes("@"))return text;const parts=[];let last=0;const re=/@([\w][\w .]*)/g;let m;while((m=re.exec(text))!==null){const name=m[1].trim();const isPerson=people?.some(p=>p.toLowerCase()===name.toLowerCase());if(isPerson){if(m.index>last)parts.push(text.slice(last,m.index));parts.push(<span key={m.index} style={{background:"#e6f0ff",color:C.blue,borderRadius:3,padding:"0 3px",fontWeight:600,fontSize:12}}>@{name}</span>);last=m.index+m[0].length;}}if(last<text.length)parts.push(text.slice(last));return parts.length?parts:text;};
+const renderMentionText=(text,people)=>{if(!text||!text.includes("@"))return text;const parts=[];let last=0;const re=/@([\w][\w .]*)/g;let m;while((m=re.exec(text))!==null){const name=m[1].trim();const isPerson=people?.some(p=>p.toLowerCase()===name.toLowerCase());if(isPerson){if(m.index>last)parts.push(text.slice(last,m.index));parts.push(<span key={m.index} style={{background:C.hlBlue,color:C.blue,borderRadius:3,padding:"0 3px",fontWeight:600,fontSize:12}}>@{name}</span>);last=m.index+m[0].length;}}if(last<text.length)parts.push(text.slice(last));return parts.length?parts:text;};
 
 const CtxMenu=memo(({pos,onClose,options})=>{
   const ref=useRef(null);
@@ -532,21 +491,20 @@ const CtxMenu=memo(({pos,onClose,options})=>{
 const FilterPanel=memo(({filters,setFilters,people,statuses,priorities,allTags,onClose,sortBy,setSortBy,hiddenCols,setHiddenCols})=>{
   const [tab,setTab]=useState("filter");
   const tog=(k,v)=>setFilters(f=>{const s=new Set(f[k]||[]);s.has(v)?s.delete(v):s.add(v);return{...f,[k]:[...s]};});
-  const cnt=Object.values(filters).reduce((a,v)=>a+v.length,0);
-  const SHOW_COLS=["Owner","Status","Priority","Timeline","Duration","Tags","Time Tracked","Updates"];
+  const cnt=Object.values(filters).reduce((a,v)=>a+v.length,0);const SHOW_COLS=["Owner","Status","Priority","Timeline","Duration","Tags","Time Tracked","Updates"];
   return(<div data-filter-panel style={{position:"absolute",top:"100%",left:0,zIndex:9999,background:V.card,border:B.bdr,borderRadius:10,boxShadow:"0 8px 30px rgba(0,0,0,.15)",width:380,maxHeight:480,overflowY:"auto"}}>
     <div style={{display:"flex",borderBottom:B.bdrS}}>
-      {[["filter","Filter"],["sort","Sort"],["columns","Columns"]].map(([k,l])=>(<button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:"9px 0",border:"none",background:tab===k?"#f5f3ff":"#fff",color:tab===k?C.purple:"#666",fontWeight:tab===k?700:400,cursor:"pointer",fontSize:12,borderBottom:tab===k?"2px solid #6c5ce7":"2px solid transparent"}}>{l}</button>))}
+      {[["filter","Filter"],["sort","Sort"],["columns","Columns"]].map(([k,l])=>(<button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:"9px 0",border:"none",background:tab===k?C.lgPurp:"#fff",color:tab===k?C.purple:"#666",fontWeight:tab===k?700:400,cursor:"pointer",fontSize:12,borderBottom:tab===k?"2px solid #6c5ce7":"2px solid transparent"}}>{l}</button>))}
       <button onClick={onClose} style={{background:"none",border:"none",fontSize:16,cursor:"pointer",color:V.tMut8,padding:"0 10px"}}>✕</button></div>
     {tab==="filter"&&<div style={{padding:14}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:10}}><span style={{fontSize:13,fontWeight:700}}>Filters {cnt>0&&<span style={{background:C.purple,color:"#fff",borderRadius:8,padding:"1px 7px",fontSize:11}}>{cnt}</span>}</span>{cnt>0&&<span onClick={()=>setFilters({status:[],owner:[],priority:[],tags:[]})} style={{fontSize:12,color:C.red,cursor:"pointer"}}>Clear all</span>}</div>
       {[{k:"status",l:"Status",items:statuses,c:SC},{k:"owner",l:"Owner",items:people},{k:"priority",l:"Priority",items:priorities,c:PC},{k:"tags",l:"Tags",items:allTags}].map(s=>(<div key={s.k} style={{marginBottom:10}}>
         <div style={{fontSize:11,fontWeight:700,color:V.tSoft,marginBottom:5}}>{s.l}</div>
-        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{s.items.map(it=>{const sel=(filters[s.k]||[]).includes(it);return(<div key={it} onClick={()=>tog(s.k,it)} style={{padding:"3px 10px",borderRadius:16,fontSize:11,cursor:"pointer",border:sel?"1.5px solid #6c5ce7":"1.5px solid #e0e0e0",background:sel?"#f0eeff":"#fff",color:sel?C.purple:"#555",fontWeight:sel?600:400,..._fc,gap:4}}>{s.c?.[it]&&<span style={{width:7,height:7,borderRadius:"50%",background:s.c[it]}}/>}{it}</div>);})}</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:4}}>{s.items.map(it=>{const sel=(filters[s.k]||[]).includes(it);return(<div key={it} onClick={()=>tog(s.k,it)} style={{padding:"3px 10px",borderRadius:16,fontSize:11,cursor:"pointer",border:sel?"1.5px solid #6c5ce7":"1.5px solid #e0e0e0",background:sel?C.hlPurp:"#fff",color:sel?C.purple:"#555",fontWeight:sel?600:400,..._fc,gap:4}}>{s.c?.[it]&&<span style={{width:7,height:7,borderRadius:"50%",background:s.c[it]}}/>}{it}</div>);})}</div>
       </div>))}</div>}
     {tab==="sort"&&<div style={{padding:14}}>
       <div style={{fontSize:12,color:V.tMut8,marginBottom:10}}>Sort all items by:</div>
-      {["Default","Name","Status","Priority","Owner"].map(s=>(<button key={s} onClick={()=>setSortBy(s)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 12px",border:"none",borderRadius:6,cursor:"pointer",background:sortBy===s?"#f0eeff":"transparent",color:sortBy===s?C.purple:"#333",fontWeight:sortBy===s?700:400,fontSize:13,marginBottom:3}}>{sortBy===s?"● ":""}{s}</button>))}
+      {["Default","Name","Status","Priority","Owner"].map(s=>(<button key={s} onClick={()=>setSortBy(s)} style={{display:"block",width:"100%",textAlign:"left",padding:"8px 12px",border:"none",borderRadius:6,cursor:"pointer",background:sortBy===s?C.hlPurp:"transparent",color:sortBy===s?C.purple:"#333",fontWeight:sortBy===s?700:400,fontSize:13,marginBottom:3}}>{sortBy===s?"● ":""}{s}</button>))}
     </div>}
     {tab==="columns"&&<div style={{padding:14}}>
       <div style={{fontSize:12,color:V.tMut8,marginBottom:10}}>Show / hide columns:</div>
@@ -558,15 +516,14 @@ const FilterPanel=memo(({filters,setFilters,people,statuses,priorities,allTags,o
 const ProgBar=memo(({rows})=>{const t=rows.length;if(!t) return (null);const d=rows.filter(r=>rv(r,"status")==="Done").length;const p=Math.round(d/t*100);return(<div style={{..._fc,gap:6,marginLeft:8}}><div style={{width:60,height:5,background:"rgba(255,255,255,.3)",borderRadius:3,overflow:"hidden"}}><div style={{width:p+"%",height:"100%",background:V.card,borderRadius:3,transition:"width .3s"}}/></div><span style={{fontSize:10,color:"rgba(255,255,255,.8)"}}>{p}%</span></div>);});
 
 const KanbanView=memo(({allRows,onStatusChange,onOpenDetail})=>{
-  const {bStatuses:statuses}=useSlate()||{bStatuses:[]};
-  const [dragItem,setDragItem]=useState(null);const [dragOverCol,setDragOverCol]=useState(null);
+  const {bStatuses:statuses}=useSlate()||{bStatuses:[]};const [dragItem,setDragItem]=useState(null);const [dragOverCol,setDragOverCol]=useState(null);
   return(<div style={{display:"flex",gap:12,overflowX:"auto",padding:"8px 0",minHeight:400}}>
   {statuses.map(s=>{const items=allRows.filter(({row})=>(rv(row,"status")||"Not Started")===s);const isOver=dragOverCol===s;
     return(<div key={s} data-kanban-col style={{minWidth:220,maxWidth:260,flex:"0 0 240px",background:isOver?"rgba(0,115,234,.08)":V.rAltF,borderRadius:10,display:"flex",flexDirection:"column",border:isOver?"2px dashed #0073ea":"2px solid transparent",transition:"all .15s"}}
       onDragOver={e=>{e.preventDefault();if(dragItem)setDragOverCol(s);}}
       onDragLeave={()=>setDragOverCol(null)}
       onDrop={e=>{e.preventDefault();setDragOverCol(null);if(dragItem&&dragItem.status!==s){onStatusChange(dragItem.gId,dragItem.id,s);}setDragItem(null);}}>
-    <div style={{padding:"10px 14px",..._fc,gap:8}}><span style={{width:10,height:10,borderRadius:"50%",background:SC[s]||"#ccc"}}/><span style={{fontSize:13,fontWeight:700,flex:1}}>{s}</span><span style={{fontSize:11,color:V.tMut,background:"#e6e9ef",borderRadius:8,padding:"0 6px"}}>{items.length}</span></div>
+    <div style={{padding:"10px 14px",..._fc,gap:8}}><span style={{width:10,height:10,borderRadius:"50%",background:SC[s]||"#ccc"}}/><span style={{fontSize:13,fontWeight:700,flex:1}}>{s}</span><span style={{fontSize:11,color:V.tMut,background:C.hlGrey,borderRadius:8,padding:"0 6px"}}>{items.length}</span></div>
     <div style={{flex:1,overflowY:"auto",padding:"0 8px 8px",minHeight:60}}>
       {items.map(({row,gId})=>{let didDrag=false;const subs=rvArr(row,"subitems");const subT=subs.length;const subD=subs.filter(si=>rv(si,"status")==="Done").length;const updCount=rvArr(row,"updates").length;const hasDue=!!rv(row,"tlEnd");const pr=rv(row,"priority")&&rv(row,"priority")!=="No Priority"?rv(row,"priority"):null;const oi=allRows.findIndex(r=>rv(r.row,"owner")===rv(row,"owner")&&rv(r.row,"owner"));return(<div key={row.id} draggable
         data-kanban-card onDragStart={e=>{didDrag=true;setDragItem({id:row.id,gId,status:rv(row,"status")});e.dataTransfer.effectAllowed="move";}}
@@ -575,8 +532,8 @@ const KanbanView=memo(({allRows,onStatusChange,onOpenDetail})=>{
         style={{background:V.card,borderRadius:8,padding:"10px 12px",marginBottom:6,border:isOverdue(row)?"1.5px solid #e2445c":B.bdr,boxShadow:"0 1px 3px rgba(0,0,0,.04)",cursor:"grab",transition:"all .15s",opacity:dragItem?.id===row.id?0.4:1}} onMouseEnter={e=>e.currentTarget.style.boxShadow="0 3px 12px rgba(0,0,0,.1)"} onMouseLeave={e=>e.currentTarget.style.boxShadow="0 1px 3px rgba(0,0,0,.04)"}>
         {pr&&<div style={{marginBottom:6}}><span style={{fontSize:10,padding:"2px 7px",borderRadius:10,background:PC[pr],color:"#fff",fontWeight:600}}>{pr}</span></div>}
         <div style={{fontSize:13,fontWeight:600,marginBottom:8,color:isOverdue(row)?C.red:V.text,lineHeight:1.4}}>{isOverdue(row)&&"⚠ "}{rv(row,"task")||"Untitled"}</div>
-        {rvArr(row,"tags").length>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:8}}>{rvArr(row,"tags").slice(0,3).map(t=>(<span key={t} style={{fontSize:9,background:"#e6f0ff",color:C.blue,padding:"1px 5px",borderRadius:3}}>{t}</span>))}{rvArr(row,"tags").length>3&&<span style={{fontSize:9,color:V.tMut}}>+{rvArr(row,"tags").length-3}</span>}</div>}
-        {subT>0&&<div style={{..._fc,gap:5,marginBottom:8}}><div style={{flex:1,height:4,borderRadius:2,background:"#e6e9ef",overflow:"hidden"}}><div style={{width:Math.round(subD/subT*100)+"%",height:4,borderRadius:2,background:subD===subT?C.green:C.blue}}/></div><span style={{fontSize:9,color:V.tMut}}>{subD}/{subT}</span></div>}
+        {rvArr(row,"tags").length>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:8}}>{rvArr(row,"tags").slice(0,3).map(t=>(<span key={t} style={{fontSize:9,background:C.hlBlue,color:C.blue,padding:"1px 5px",borderRadius:3}}>{t}</span>))}{rvArr(row,"tags").length>3&&<span style={{fontSize:9,color:V.tMut}}>+{rvArr(row,"tags").length-3}</span>}</div>}
+        {subT>0&&<div style={{..._fc,gap:5,marginBottom:8}}><div style={{flex:1,height:4,borderRadius:2,background:C.hlGrey,overflow:"hidden"}}><div style={{width:Math.round(subD/subT*100)+"%",height:4,borderRadius:2,background:subD===subT?C.green:C.blue}}/></div><span style={{fontSize:9,color:V.tMut}}>{subD}/{subT}</span></div>}
         <div style={{..._fc,gap:6,marginTop:4}}>
           {rv(row,"owner")?<div title={rv(row,"owner")} style={{width:22,height:22,borderRadius:"50%",background:CL[Math.abs(oi)%CL.length],color:"#fff",..._fcc,fontSize:9,fontWeight:700,flexShrink:0}}>{Initials(rv(row,"owner"))}</div>:<div style={{width:22,height:22,borderRadius:"50%",border:"1.5px dashed #ccc",flexShrink:0}}/>}
           <div style={{flex:1}}/>
@@ -585,17 +542,13 @@ const KanbanView=memo(({allRows,onStatusChange,onOpenDetail})=>{
     {items.length===0&&<div style={{padding:"20px 8px",textAlign:"center",color:V.tMutC,fontSize:12}}>{isOver?"Drop here":"No items"}</div>}</div></div>);})}</div>);});
 
 const DashView=memo(({allRows})=>{
-  const [widgets,setWidgets]=useState([{id:"kpi",on:true},{id:"status",on:true},{id:"owner",on:true},{id:"priority",on:true},{id:"tags",on:true},{id:"timeline",on:true}]);const [settingsOpen,setSettingsOpen]=useState(false);
-  const toggle=(id)=>setWidgets(w=>w.map(x=>x.id===id?{...x,on:!x.on}:x));
+  const [widgets,setWidgets]=useState([{id:"kpi",on:true},{id:"status",on:true},{id:"owner",on:true},{id:"priority",on:true},{id:"tags",on:true},{id:"timeline",on:true}]);const [settingsOpen,setSettingsOpen]=useState(false);const toggle=(id)=>setWidgets(w=>w.map(x=>x.id===id?{...x,on:!x.on}:x));
   const sd=useMemo(()=>{const m={};allRows.forEach(({row})=>{const s=rv(row,"status")||"Not Started";m[s]=(m[s]||0)+1;});return Object.entries(m).map(([k,v])=>({name:k,value:v,color:SC[k]||"#ccc"}));},[allRows]);
   const od=useMemo(()=>{const m={};allRows.forEach(({row})=>{const o=rv(row,"owner")||"Unassigned";m[o]=(m[o]||0)+1;});return Object.entries(m).map(([k,v])=>({name:k,value:v}));},[allRows]);
   const pd=useMemo(()=>{const m={};allRows.forEach(({row})=>{const p=rv(row,"priority")||"No Priority";m[p]=(m[p]||0)+1;});return Object.entries(m).map(([k,v])=>({name:k,value:v,color:PC[k]||"#ccc"}));},[allRows]);
   const td=useMemo(()=>{const m={};allRows.forEach(({row})=>{rvArr(row,"tags").forEach(t=>{m[t]=(m[t]||0)+1;});});return Object.entries(m).map(([k,v])=>({name:k,value:v})).sort((a,b)=>b.value-a.value);},[allRows]);
-  const t=allRows.length,dn=allRows.filter(r=>rv(r.row,"status")==="Done").length,st=allRows.filter(r=>rv(r.row,"status")==="Stuck").length,ov=allRows.filter(r=>isOverdue(r.row)).length;
-  const ip=allRows.filter(r=>rv(r.row,"status")==="In Progress"||rv(r.row,"status")==="Working on it").length;
-  const on=(id)=>widgets.find(w=>w.id===id)?.on;
-  const wl=["kpi","status","owner","priority","tags","timeline"];
-  const wLabels={kpi:"KPI Cards",status:"Status Chart",owner:"Owner Chart",priority:"Priority Chart",tags:"Tag Breakdown",timeline:"Timeline Stats"};
+  const t=allRows.length,dn=allRows.filter(r=>rv(r.row,"status")==="Done").length,st=allRows.filter(r=>rv(r.row,"status")==="Stuck").length,ov=allRows.filter(r=>isOverdue(r.row)).length;const ip=allRows.filter(r=>rv(r.row,"status")==="In Progress"||rv(r.row,"status")==="Working on it").length;const on=(id)=>widgets.find(w=>w.id===id)?.on;
+  const wl=["kpi","status","owner","priority","tags","timeline"];const wLabels={kpi:"KPI Cards",status:"Status Chart",owner:"Owner Chart",priority:"Priority Chart",tags:"Tag Breakdown",timeline:"Timeline Stats"};
   return(<div style={{padding:"8px 0"}}>
     <div style={{display:"flex",justifyContent:"flex-end",marginBottom:12}}>
       <div style={{position:"relative"}}>
@@ -606,31 +559,23 @@ const DashView=memo(({allRows})=>{
             <span style={{fontSize:12}}>{wLabels[id]}</span>
             <Toggle on={on(id)} onToggle={()=>toggle(id)}/></div>))}</div>}</div></div>
     {on("kpi")&&<div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
-      {[{l:"Total",v:t,c:C.blue},{l:"Done",v:dn,c:C.green},{l:"In Progress",v:ip,c:C.orange},{l:"Stuck",v:st,c:C.red},{l:"Overdue",v:ov,c:"#ff642e"},{l:"Completion",v:t?Math.round(dn/t*100)+"%":"0%",c:C.violet}].map(x=>(<div key={x.l} style={{flex:"1 1 100px",background:V.card,borderRadius:10,padding:"16px 20px",border:B.bdr}}><div style={{fontSize:24,fontWeight:800,color:x.c}}>{x.v}</div><div style={{fontSize:12,color:V.tMut8,marginTop:2}}>{x.l}</div></div>))}
+      {[{l:"Total",v:t,c:C.blue},{l:"Done",v:dn,c:C.green},{l:"In Progress",v:ip,c:C.orange},{l:"Stuck",v:st,c:C.red},{l:"Overdue",v:ov,c:C.flame},{l:"Completion",v:t?Math.round(dn/t*100)+"%":"0%",c:C.violet}].map(x=>(<div key={x.l} style={{flex:"1 1 100px",background:V.card,borderRadius:10,padding:"16px 20px",border:B.bdr}}><div style={{fontSize:24,fontWeight:800,color:x.c}}>{x.v}</div><div style={{fontSize:12,color:V.tMut8,marginTop:2}}>{x.l}</div></div>))}
     </div>}
     <div style={{display:"flex",gap:16,flexWrap:"wrap"}}>
       {on("status")&&<div style={{flex:"1 1 280px",background:V.card,borderRadius:10,padding:20,border:B.bdr}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Status</div><ResponsiveContainer width="100%" height={200}><PieChart><Pie data={sd} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false} style={{fontSize:9}}>{sd.map((e,i)=>(<RCell key={i} fill={e.color}/>))}</Pie><Tooltip/></PieChart></ResponsiveContainer></div>}
       {on("owner")&&<div style={{flex:"1 1 280px",background:V.card,borderRadius:10,padding:20,border:B.bdr}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>By Owner</div><ResponsiveContainer width="100%" height={200}><BarChart data={od}><XAxis dataKey="name" tick={{fontSize:10}} angle={-20} textAnchor="end" height={50}/><YAxis allowDecimals={false} tick={{fontSize:10}}/><Tooltip/><Bar dataKey="value" fill={C.sky} radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div>}
       {on("priority")&&<div style={{flex:"1 1 280px",background:V.card,borderRadius:10,padding:20,border:B.bdr}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Priority</div><ResponsiveContainer width="100%" height={200}><PieChart><Pie data={pd} cx="50%" cy="50%" innerRadius={50} outerRadius={80} dataKey="value" label={({name,percent})=>`${name} ${(percent*100).toFixed(0)}%`} labelLine={false} style={{fontSize:9}}>{pd.map((e,i)=>(<RCell key={i} fill={e.color}/>))}</Pie><Tooltip/></PieChart></ResponsiveContainer></div>}
-      {on("tags")&&td.length>0&&<div style={{flex:"1 1 280px",background:V.card,borderRadius:10,padding:20,border:B.bdr}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Tags</div>{td.slice(0,8).map(t=>(<div key={t.name} style={{..._fc,gap:8,marginBottom:6}}><div style={{flex:1,..._fc,gap:6}}><span style={{fontSize:12}}>{t.name}</span></div><div style={{width:80,height:6,borderRadius:3,background:"#e6e9ef",overflow:"hidden"}}><div style={{width:Math.round(t.value/allRows.length*100)+"%",height:6,background:TAG_SC[t.name]||C.sky,borderRadius:3}}/></div><span style={{fontSize:11,color:V.tMut8,minWidth:20,textAlign:"right"}}>{t.value}</span></div>))}</div>}
+      {on("tags")&&td.length>0&&<div style={{flex:"1 1 280px",background:V.card,borderRadius:10,padding:20,border:B.bdr}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Tags</div>{td.slice(0,8).map(t=>(<div key={t.name} style={{..._fc,gap:8,marginBottom:6}}><div style={{flex:1,..._fc,gap:6}}><span style={{fontSize:12}}>{t.name}</span></div><div style={{width:80,height:6,borderRadius:3,background:C.hlGrey,overflow:"hidden"}}><div style={{width:Math.round(t.value/allRows.length*100)+"%",height:6,background:TAG_SC[t.name]||C.sky,borderRadius:3}}/></div><span style={{fontSize:11,color:V.tMut8,minWidth:20,textAlign:"right"}}>{t.value}</span></div>))}</div>}
       {on("timeline")&&<div style={{flex:"1 1 280px",background:V.card,borderRadius:10,padding:20,border:B.bdr}}><div style={{fontSize:14,fontWeight:700,marginBottom:12}}>Timeline</div>
         <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-          {[{l:"With dates",v:allRows.filter(r=>rv(r.row,"tlStart")||rv(r.row,"tlEnd")).length,c:C.blue},{l:"No dates",v:allRows.filter(r=>!rv(r.row,"tlStart")&&!rv(r.row,"tlEnd")).length,c:"#c4c4c4"},{l:"Overdue",v:ov,c:C.red},{l:"On track",v:allRows.filter(r=>(rv(r.row,"tlEnd")&&!isOverdue(r.row)&&rv(r.row,"status")!=="Done")).length,c:C.green}].map(x=>(<div key={x.l} style={{background:V.rAlt,borderRadius:8,padding:"10px 12px",textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:x.c}}>{x.v}</div><div style={{fontSize:10,color:V.tMut8}}>{x.l}</div></div>))}
+          {[{l:"With dates",v:allRows.filter(r=>rv(r.row,"tlStart")||rv(r.row,"tlEnd")).length,c:C.blue},{l:"No dates",v:allRows.filter(r=>!rv(r.row,"tlStart")&&!rv(r.row,"tlEnd")).length,c:C.grey},{l:"Overdue",v:ov,c:C.red},{l:"On track",v:allRows.filter(r=>(rv(r.row,"tlEnd")&&!isOverdue(r.row)&&rv(r.row,"status")!=="Done")).length,c:C.green}].map(x=>(<div key={x.l} style={{background:V.rAlt,borderRadius:8,padding:"10px 12px",textAlign:"center"}}><div style={{fontSize:20,fontWeight:800,color:x.c}}>{x.v}</div><div style={{fontSize:10,color:V.tMut8}}>{x.l}</div></div>))}
         </div></div>}</div></div>);});
 
 const GroupSummaryBar=memo(({rows,cols})=>{
-  const {bStatuses:statuses}=useSlate()||{bStatuses:[]};
-  const t=rows.length;if(!t) return (null);
+  const {bStatuses:statuses}=useSlate()||{bStatuses:[]};const t=rows.length;if(!t) return (null);
   const counts={};rows.forEach(r=>{const s=rv(r,"status")||"Not Started";counts[s]=(counts[s]||0)+1;});
-  const segments=statuses.filter(s=>counts[s]).map(s=>({label:s,count:counts[s],pct:Math.round(counts[s]/t*100),color:SC[s]||"#c4c4c4"}));
-  const totalTime=rows.reduce((a,r)=>a+(parseInt(rv(r,"timetracked"))||0),0);
-  const owners=new Set(rows.map(r=>rv(r,"owner")).filter(Boolean));
-  const allTags=new Set(rows.flatMap(r=>rvArr(r,"tags")));
-  const dates=rows.map(r=>rv(r,"tlEnd")).filter(Boolean).sort();
-  const earliest=rows.map(r=>rv(r,"tlStart")).filter(Boolean).sort()[0];
-  const latest=dates[dates.length-1];
-  const [formulas,setFormulas]=useState({});
-  const numCols=(cols||[]).filter(c=>c.type==="number"||c.type==="timer");
+  const segments=statuses.filter(s=>counts[s]).map(s=>({label:s,count:counts[s],pct:Math.round(counts[s]/t*100),color:SC[s]||C.grey}));const totalTime=rows.reduce((a,r)=>a+(parseInt(rv(r,"timetracked"))||0),0);const owners=new Set(rows.map(r=>rv(r,"owner")).filter(Boolean));const allTags=new Set(rows.flatMap(r=>rvArr(r,"tags")));const dates=rows.map(r=>rv(r,"tlEnd")).filter(Boolean).sort();
+  const earliest=rows.map(r=>rv(r,"tlStart")).filter(Boolean).sort()[0];const latest=dates[dates.length-1];const [formulas,setFormulas]=useState({});const numCols=(cols||[]).filter(c=>c.type==="number"||c.type==="timer");
   const calcFormula=(colId,formula)=>{
     const vals=rows.map(r=>parseFloat(r[colId])||0);
     if(!vals.length)return 0;
@@ -643,7 +588,7 @@ const GroupSummaryBar=memo(({rows,cols})=>{
   return(<div data-summary style={{background:V.rAlt,borderTop:B.bdrS}}>
     <div style={{..._fc,gap:10,padding:"6px 16px 4px 44px",fontSize:11,color:V.tMut8,flexWrap:"wrap"}}>
       <span style={{fontWeight:600,color:V.tSoft}}>{t} item{t!==1?"s":""}</span>
-      <div style={{display:"flex",height:6,borderRadius:3,overflow:"hidden",flex:"0 0 120px",background:"#e6e9ef"}}>
+      <div style={{display:"flex",height:6,borderRadius:3,overflow:"hidden",flex:"0 0 120px",background:C.hlGrey}}>
         {segments.map(s=>(<div key={s.label} style={{width:s.pct+"%",background:s.color,height:"100%"}} title={s.label+": "+s.count}/>))}</div>
       {segments.map(s=>(<span key={s.label} style={{..._fc,gap:3}}><span style={{width:7,height:7,borderRadius:2,background:s.color,flexShrink:0}}/>{s.count} {s.label}</span>))}</div>
     <div style={{display:"flex",gap:14,padding:"2px 16px 6px 44px",fontSize:10,color:"#aaa",flexWrap:"wrap",alignItems:"center"}}>
@@ -658,16 +603,10 @@ const GroupSummaryBar=memo(({rows,cols})=>{
         <span style={{fontWeight:700,color:C.blue}}>{typeof val==="number"?val.toLocaleString():val}</span></span>);})}</div></div>);});
 
 const CalendarView=memo(({allRows,onOpenDetail})=>{
-  const [monthOff,setMonthOff]=useState(0);
-  const now=new Date();const base=new Date(now.getFullYear(),now.getMonth()+monthOff,1);
-  const year=base.getFullYear(),month=base.getMonth();
-  const firstDay=new Date(year,month,1).getDay();const daysInMonth=new Date(year,month+1,0).getDate();
-  const monthLabel=base.toLocaleDateString("en-US",{month:"long",year:"numeric"});
-  const todayStr=today();
+  const [monthOff,setMonthOff]=useState(0);const now=new Date();const base=new Date(now.getFullYear(),now.getMonth()+monthOff,1);const year=base.getFullYear(),month=base.getMonth();const firstDay=new Date(year,month,1).getDay();const daysInMonth=new Date(year,month+1,0).getDate();const monthLabel=base.toLocaleDateString("en-US",{month:"long",year:"numeric"});const todayStr=today();
   const dateMap=useMemo(()=>{
     const m={};allRows.forEach(({row,gId})=>{
-      const d=rv(row,"tlEnd")||rv(row,"tlStart");if(!d)return;
-      const ds=d.slice(0,10);if(!ds.startsWith(year+"-"+String(month+1).padStart(2,"0")))return;
+      const d=rv(row,"tlEnd")||rv(row,"tlStart");if(!d)return;const ds=d.slice(0,10);if(!ds.startsWith(year+"-"+String(month+1).padStart(2,"0")))return;
       if(!m[ds])m[ds]=[];m[ds].push({row,gId});
     });return m;
   },[allRows,year,month]);
@@ -682,18 +621,15 @@ const CalendarView=memo(({allRows,onOpenDetail})=>{
     <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",border:B.bdr,borderRadius:8,overflow:"hidden"}}>
       {["Sun","Mon","Tue","Wed","Thu","Fri","Sat"].map(d=>(<div key={d} style={{padding:"8px 4px",textAlign:"center",fontSize:11,fontWeight:700,color:V.tMut8,background:V.rAlt,borderBottom:B.bdr}}>{d}</div>))}
       {cells.map((day,i)=>{
-        const ds=day?year+"-"+String(month+1).padStart(2,"0")+"-"+String(day).padStart(2,"0"):null;
-        const items=ds?dateMap[ds]||[]:[];const isToday=ds===todayStr;const isWeekend=i%7===0||i%7===6;
-        return(<div key={i} style={{minHeight:80,padding:4,borderRight:i%7<6?"1px solid #f0f0f0":"none",borderBottom:B.bdrS,background:isToday?"#e6f0ff":isWeekend&&day?"#fafbfc":"#fff",position:"relative"}}>
+        const ds=day?year+"-"+String(month+1).padStart(2,"0")+"-"+String(day).padStart(2,"0"):null;const items=ds?dateMap[ds]||[]:[];const isToday=ds===todayStr;const isWeekend=i%7===0||i%7===6;
+        return(<div key={i} style={{minHeight:80,padding:4,borderRight:i%7<6?B.bdrS:"none",borderBottom:B.bdrS,background:isToday?C.hlBlue:isWeekend&&day?"#fafbfc":"#fff",position:"relative"}}>
           {day&&<div style={{fontSize:12,fontWeight:isToday?800:400,color:isToday?C.blue:"#555",marginBottom:2}}>{day}</div>}
           {items.slice(0,3).map(({row:r,gId})=>(<div key={r.id} onClick={()=>onOpenDetail?.(gId,r.id)} style={{padding:"2px 4px",marginBottom:2,borderRadius:3,background:SC[rv(r,"status")]||C.sky,color:"#fff",fontSize:10,fontWeight:600,..._ell,cursor:"pointer"}} title={rv(r,"task")+" — "+rv(r,"status")+(rv(r,"owner")?" ("+rv(r,"owner")+")":"")}>{rv(r,"task")}</div>))}
           {items.length>3&&<div style={{fontSize:9,color:V.tMut8,padding:"0 4px"}}>+{items.length-3} more</div>}</div>);})}</div></div>);});
 
 const GanttView=memo(({allRows,onOpenDetail})=>{
   const wt=allRows.filter(({row})=>rv(row,"tlStart")&&rv(row,"tlEnd"));if(!wt.length) return(<EmptyState icon="📅" title="No timeline data" sub="Add start and end dates to your tasks to see them on the Gantt chart." />);
-  const ad=wt.flatMap(({row})=>[new Date(rv(row,"tlStart")),new Date(rv(row,"tlEnd"))]);const mn=new Date(Math.min(...ad)),mx=new Date(Math.max(...ad));
-  const days=[];for(let d=new Date(mn);d<=mx;d.setDate(d.getDate()+1))days.push(new Date(d));const cw=Math.max(24,Math.min(50,700/days.length));
-  const rowH=34;const headerH=40;const taskColW=220;
+  const ad=wt.flatMap(({row})=>[new Date(rv(row,"tlStart")),new Date(rv(row,"tlEnd"))]);const mn=new Date(Math.min(...ad)),mx=new Date(Math.max(...ad));const days=[];for(let d=new Date(mn);d<=mx;d.setDate(d.getDate()+1))days.push(new Date(d));const cw=Math.max(24,Math.min(50,700/days.length));const rowH=34;const headerH=40;const taskColW=220;
   const taskMap={};wt.forEach(({row},i)=>{taskMap[(rv(row,"task")||"").toLowerCase()]=i;});
   const deps=[];
   wt.forEach(({row},toIdx)=>{
@@ -708,31 +644,23 @@ const GanttView=memo(({allRows,onOpenDetail})=>{
         {isOverdue(row)&&<span>⚠</span>}{(rv(row,"task")||"").slice(0,28)}
         {rv(row,"dependentOn")&&<span title={"Depends on: "+rv(row,"dependentOn")} style={{fontSize:9,color:C.violet,flexShrink:0}}>🔗</span>}
       </div>))}</div>
-    <div style={{flex:1,position:"relative"}}><div style={{display:"flex",height:headerH,borderBottom:B.bdr}}>{days.map((d,i)=>{const isToday=d.toDateString()===new Date().toDateString();return(<div key={i} style={{width:cw,flexShrink:0,textAlign:"center",fontSize:8,color:isToday?C.blue:"#999",padding:"4px 0",borderRight:"1px solid #f5f5f5",background:isToday?"#e6f0ff":"transparent",fontWeight:isToday?700:400}}><div>{d.toLocaleDateString("en-US",{month:"short"})}</div><div>{d.getDate()}</div></div>);})}</div>
+    <div style={{flex:1,position:"relative"}}><div style={{display:"flex",height:headerH,borderBottom:B.bdr}}>{days.map((d,i)=>{const isToday=d.toDateString()===new Date().toDateString();return(<div key={i} style={{width:cw,flexShrink:0,textAlign:"center",fontSize:8,color:isToday?C.blue:"#999",padding:"4px 0",borderRight:B.bdrS,background:isToday?C.hlBlue:"transparent",fontWeight:isToday?700:400}}><div>{d.toLocaleDateString("en-US",{month:"short"})}</div><div>{d.getDate()}</div></div>);})}</div>
       {wt.map(({row,gId})=>{const{x:l,w}=getBarPos(row);const isMilestone=rv(row,"tlStart")===rv(row,"tlEnd")||rvArr(row,"tags").some(t=>t.toLowerCase()==="milestone");
         return(<div key={row.id} style={{height:rowH,position:"relative",borderBottom:B.bdrS}}>
           {isMilestone
             ?<div onClick={()=>onOpenDetail?.(gId,row.id)} style={{position:"absolute",left:l-6,top:5,width:22,height:22,cursor:"pointer",zIndex:2}} title={rv(row,"task")}>
-              <svg width="22" height="22" viewBox="0 0 22 22"><polygon points="11,1 21,11 11,21 1,11" fill={isOverdue(row)?C.red:SC[rv(row,"status")]||"#ff642e"} stroke="#fff" strokeWidth="1.5"/><text x="11" y="14" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="700">◆</text></svg></div>
+              <svg width="22" height="22" viewBox="0 0 22 22"><polygon points="11,1 21,11 11,21 1,11" fill={isOverdue(row)?C.red:SC[rv(row,"status")]||C.flame} stroke="#fff" strokeWidth="1.5"/><text x="11" y="14" textAnchor="middle" fill="#fff" fontSize="7" fontWeight="700">◆</text></svg></div>
             :<div onClick={()=>onOpenDetail?.(gId,row.id)} style={{position:"absolute",left:l,top:7,width:w,height:20,background:isOverdue(row)?C.red:SC[rv(row,"status")]||C.sky,borderRadius:4,..._fcc,color:"#fff",fontSize:9,fontWeight:600,overflow:"hidden",padding:"0 3px",transition:"filter .15s",zIndex:1,cursor:"pointer"}} onMouseEnter={e2=>e2.currentTarget.style.filter="brightness(1.1)"} onMouseLeave={e2=>e2.currentTarget.style.filter="brightness(1)"}>{(rv(row,"task")||"").slice(0,18)}</div>}
         </div>);})}
-
       {deps.length>0&&<svg style={{position:"absolute",top:headerH,left:0,width:"100%",height:wt.length*rowH,pointerEvents:"none",zIndex:3}}>
         <defs><marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill={C.violet} opacity="0.7"/></marker></defs>
         {deps.map((dep,di)=>{
-          const fromBar=getBarPos(dep.fromRow);const toBar=getBarPos(dep.toRow);
-          const x1=fromBar.x+fromBar.w;const y1=dep.fromIdx*rowH+rowH/2;
-          const x2=toBar.x;const y2=dep.toIdx*rowH+rowH/2;
-          const midX=x1+(x2-x1)/2;
+          const fromBar=getBarPos(dep.fromRow);const toBar=getBarPos(dep.toRow);const x1=fromBar.x+fromBar.w;const y1=dep.fromIdx*rowH+rowH/2;const x2=toBar.x;const y2=dep.toIdx*rowH+rowH/2;const midX=x1+(x2-x1)/2;
           return(<path key={di} d={`M${x1},${y1} C${midX},${y1} ${midX},${y2} ${x2},${y2}`} fill="none" stroke={C.violet} strokeWidth="1.5" strokeDasharray="4 2" opacity="0.6" markerEnd="url(#arrowhead)"/>);})}</svg>}</div>
   </div></div>);});
 
 const WorkloadView=memo(({allRows,onOpenDetail})=>{
-  const {people}=useSlate()||{people:[]};
-  const [weekOff,setWeekOff]=useState(0);
-  const now=new Date();const baseMonday=new Date(now);baseMonday.setDate(now.getDate()-now.getDay()+1+weekOff*7);baseMonday.setHours(0,0,0,0);
-  const days=[];for(let i=0;i<14;i++){const d=new Date(baseMonday);d.setDate(baseMonday.getDate()+i);days.push(d);}
-  const todayStr=today();const cw=48;
+  const {people}=useSlate()||{people:[]};const [weekOff,setWeekOff]=useState(0);const now=new Date();const baseMonday=new Date(now);baseMonday.setDate(now.getDate()-now.getDay()+1+weekOff*7);baseMonday.setHours(0,0,0,0);const days=[];for(let i=0;i<14;i++){const d=new Date(baseMonday);d.setDate(baseMonday.getDate()+i);days.push(d);}const todayStr=today();const cw=48;
   const assigned=useMemo(()=>{
     const pm={};people.forEach(p=>{pm[p]=[];});
     allRows.forEach(({row,gId})=>{const o=rv(row,"owner");if(!o||!pm[o])return;if(rv(row,"status")==="Done")return;pm[o].push({...row,_gId:gId});});
@@ -754,12 +682,12 @@ const WorkloadView=memo(({allRows,onOpenDetail})=>{
             <div style={{width:28,height:28,borderRadius:"50%",background:CL[people.indexOf(a.name)%CL.length],color:"#fff",..._fcc,fontSize:10,fontWeight:700,flexShrink:0}}>{Initials(a.name)}</div>
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:12,fontWeight:600,..._ell}}>{a.name}</div>
-              <div style={{..._fc,gap:4}}><div style={{width:40,height:4,borderRadius:2,background:"#e6e9ef",overflow:"hidden"}}><div style={{width:pct+"%",height:4,borderRadius:2,background:overload?C.red:pct>70?C.orange:C.green}}/></div><span style={{fontSize:9,color:overload?C.red:"#888"}}>{a.count}</span></div>
+              <div style={{..._fc,gap:4}}><div style={{width:40,height:4,borderRadius:2,background:C.hlGrey,overflow:"hidden"}}><div style={{width:pct+"%",height:4,borderRadius:2,background:overload?C.red:pct>70?C.orange:C.green}}/></div><span style={{fontSize:9,color:overload?C.red:"#888"}}>{a.count}</span></div>
             </div></div>);})}</div>
         <div style={{flex:1}}>
-          <div style={{display:"flex",height:40,borderBottom:B.bdr}}>{days.map((d,i)=>{const isToday=d.toISOString().slice(0,10)===todayStr;const isWeekend=d.getDay()===0||d.getDay()===6;return(<div key={i} style={{width:cw,flexShrink:0,textAlign:"center",fontSize:9,color:isToday?C.blue:isWeekend?"#ccc":"#888",padding:"6px 0",borderRight:"1px solid #f5f5f5",background:isToday?"#e6f0ff":isWeekend?"#fafafa":"transparent",fontWeight:isToday?700:400}}><div>{d.toLocaleDateString("en-US",{weekday:"short"})}</div><div style={{fontWeight:600}}>{d.getDate()}</div></div>);})}</div>
+          <div style={{display:"flex",height:40,borderBottom:B.bdr}}>{days.map((d,i)=>{const isToday=d.toISOString().slice(0,10)===todayStr;const isWeekend=d.getDay()===0||d.getDay()===6;return(<div key={i} style={{width:cw,flexShrink:0,textAlign:"center",fontSize:9,color:isToday?C.blue:isWeekend?"#ccc":"#888",padding:"6px 0",borderRight:B.bdrS,background:isToday?C.hlBlue:isWeekend?"#fafafa":"transparent",fontWeight:isToday?700:400}}><div>{d.toLocaleDateString("en-US",{weekday:"short"})}</div><div style={{fontWeight:600}}>{d.getDate()}</div></div>);})}</div>
           {assigned.map(a=>(<div key={a.name} style={{display:"flex",height:52,borderBottom:B.bdrS}}>
-            {days.map((d,i)=>{const items=getItemsForDay(a.rows,d);const isToday=d.toISOString().slice(0,10)===todayStr;const isWeekend=d.getDay()===0||d.getDay()===6;return(<div key={i} style={{width:cw,flexShrink:0,padding:2,borderRight:"1px solid #f8f8f8",background:isToday?"#f0f7ff":isWeekend?"#fcfcfc":"transparent",display:"flex",flexDirection:"column",gap:1,justifyContent:"center"}}>
+            {days.map((d,i)=>{const items=getItemsForDay(a.rows,d);const isToday=d.toISOString().slice(0,10)===todayStr;const isWeekend=d.getDay()===0||d.getDay()===6;return(<div key={i} style={{width:cw,flexShrink:0,padding:2,borderRight:B.bdrS,background:isToday?"#f0f7ff":isWeekend?"#fcfcfc":"transparent",display:"flex",flexDirection:"column",gap:1,justifyContent:"center"}}>
               {items.slice(0,2).map(r=>(<div key={r.id} onClick={()=>onOpenDetail?.(r._gId,r.id)} style={{background:SC[rv(r,"status")]||C.sky,color:"#fff",borderRadius:3,padding:"1px 3px",fontSize:8,fontWeight:600,..._ell,cursor:"pointer"}} title={rv(r,"task")+" — "+rv(r,"status")}>{rv(r,"task")?.slice(0,8)}</div>))}
               {items.length>2&&<div style={{fontSize:7,color:V.tMut,textAlign:"center"}}>+{items.length-2}</div>}</div>);})}</div>))}</div></div></div>
     {assigned.length===0&&<EmptyState icon="👥" title="No workload to display" sub="Assign team members to tasks with timeline dates to see their workload here." />}</div>);});
@@ -768,9 +696,7 @@ const TimeTrackingView=memo(({allRows})=>{
   const {people}=useSlate()||{people:[]};
   const fmtM=(m)=>{if(!m)return"0m";const h=Math.floor(m/60);return h>0?h+"h "+m%60+"m":m+"m";};
   const byPerson=useMemo(()=>{const m={};allRows.forEach(({row,gId})=>{const o=rv(row,"owner")||"Unassigned";const t=parseInt(rv(row,"timetracked"))||0;if(!m[o])m[o]={name:o,total:0,items:[]};m[o].total+=t;if(t>0)m[o].items.push({task:rv(row,"task"),time:t,status:rv(row,"status"),gId,id:row.id});});return Object.values(m).sort((a,b)=>b.total-a.total);},[allRows]);
-  const totalTime=byPerson.reduce((a,p)=>a+p.total,0);
-  const maxTime=Math.max(1,...byPerson.map(p=>p.total));
-  const [expanded,setExpanded]=useState({});
+  const totalTime=byPerson.reduce((a,p)=>a+p.total,0);const maxTime=Math.max(1,...byPerson.map(p=>p.total));const [expanded,setExpanded]=useState({});
   return(<div style={{maxWidth:700}}>
     <div style={{display:"flex",gap:12,marginBottom:20,flexWrap:"wrap"}}>
       {[{l:"Total Tracked",v:fmtM(totalTime),c:C.blue},{l:"People",v:byPerson.filter(p=>p.total>0).length,c:C.green},{l:"Items Tracked",v:byPerson.reduce((a,p)=>a+p.items.length,0),c:C.violet}].map(x=>(<div key={x.l} style={{flex:"1 1 120px",background:V.card,borderRadius:10,padding:"16px 20px",border:B.bdr}}><div style={{fontSize:24,fontWeight:800,color:x.c}}>{x.v}</div><div style={{fontSize:12,color:V.tMut8,marginTop:2}}>{x.l}</div></div>))}
@@ -817,25 +743,17 @@ const DATA_DIMS=[
   {id:"inprogress",label:"In Progress Items"},];
 
 const DashboardBoard=memo(({boards})=>{
-  const [widgets,setWidgets]=useState(()=>DASH_PRESETS.map(w=>({...w,on:true,custom:false})));const [drillIn,setDrillIn]=useState(null);
-  const [addOpen,setAddOpen]=useState(false);const [addStep,setAddStep]=useState(1);
-  const [addType,setAddType]=useState("pie");const [addDim,setAddDim]=useState("status");
-  const [addTitle,setAddTitle]=useState("");const [addNoteText,setAddNoteText]=useState("");
-  const [cDrag,setCDrag]=useState(null);const [cOver,setCOver]=useState(null);
+  const [widgets,setWidgets]=useState(()=>DASH_PRESETS.map(w=>({...w,on:true,custom:false})));const [drillIn,setDrillIn]=useState(null);const [addOpen,setAddOpen]=useState(false);const [addStep,setAddStep]=useState(1);const [addType,setAddType]=useState("pie");const [addDim,setAddDim]=useState("status");const [addTitle,setAddTitle]=useState("");const [addNoteText,setAddNoteText]=useState("");const [cDrag,setCDrag]=useState(null);const [cOver,setCOver]=useState(null);
 
   const onCanvasDrop=(toId)=>{
     if(cDrag==null||cDrag===toId)return;
     setWidgets(prev=>{const n=[...prev];const fi=n.findIndex(w=>w.id===cDrag);const ti=n.findIndex(w=>w.id===toId);if(fi<0||ti<0)return prev;const[moved]=n.splice(fi,1);n.splice(ti,0,moved);return n;});
     setCDrag(null);setCOver(null);};
 
-  const taskBoards=boards.filter(b=>isTask(b));
-  const allRows=useMemo(()=>taskBoards.flatMap(b=>b.groups.flatMap(g=>g.rows.map(r=>({...r,_board:b.name,_boardIcon:b.icon||"📋"})))),[taskBoards]);
-  const total=allRows.length,done=allRows.filter(r=>rv(r,"status")==="Done").length,stuck=allRows.filter(r=>rv(r,"status")==="Stuck").length;
-  const inProg=allRows.filter(r=>rv(r,"status")==="In Progress"||rv(r,"status")==="Working on it").length;
-  const pct=total?Math.round(done/total*100):0;
-  const overdueItems=useMemo(()=>allRows.filter(r=>isOverdue(r)),[allRows]);
+  const taskBoards=boards.filter(b=>isTask(b));const allRows=useMemo(()=>taskBoards.flatMap(b=>b.groups.flatMap(g=>g.rows.map(r=>({...r,_board:b.name,_boardIcon:b.icon||"📋"})))),[taskBoards]);const total=allRows.length,done=allRows.filter(r=>rv(r,"status")==="Done").length,stuck=allRows.filter(r=>rv(r,"status")==="Stuck").length;
+  const inProg=allRows.filter(r=>rv(r,"status")==="In Progress"||rv(r,"status")==="Working on it").length;const pct=total?Math.round(done/total*100):0;const overdueItems=useMemo(()=>allRows.filter(r=>isOverdue(r)),[allRows]);
 
-  const AGG_COLORS=["#579bfc","#00c875","#fdab3d","#e2445c","#a25ddc","#ff642e","#037f4c","#ff5ac4","#bb3354","#6c5ce7"];
+  const AGG_COLORS=["#579bfc","#00c875","#fdab3d","#e2445c","#a25ddc",C.flame,C.teal,"#ff5ac4","#bb3354","#6c5ce7"];
   const agg=useCallback((dim)=>{
     const m={};
     if(dim==="status") allRows.forEach(r=>{const k=rv(r,"status")||"Not Started";m[k]=(m[k]||0)+1;});
@@ -896,14 +814,14 @@ const DashboardBoard=memo(({boards})=>{
 
   const renderWidget=(w)=>{
     if(w.id==="kpi"&&!w.custom){
-      const card=(label,val,color,items)=>(<div onClick={()=>{if(items?.length)drill(label,items);}} style={{flex:"1 1 120px",background:V.card,borderRadius:8,padding:"12px 14px",border:B.bdr,position:"relative",overflow:"hidden",cursor:items?.length?"pointer":"default"}} onMouseEnter={e=>{if(items?.length)e.currentTarget.style.borderColor=C.sky;}} onMouseLeave={e=>e.currentTarget.style.borderColor="#e6e9ef"}>
+      const card=(label,val,color,items)=>(<div onClick={()=>{if(items?.length)drill(label,items);}} style={{flex:"1 1 120px",background:V.card,borderRadius:8,padding:"12px 14px",border:B.bdr,position:"relative",overflow:"hidden",cursor:items?.length?"pointer":"default"}} onMouseEnter={e=>{if(items?.length)e.currentTarget.style.borderColor=C.sky;}} onMouseLeave={e=>e.currentTarget.style.borderColor=C.hlGrey}>
         <div style={{position:"absolute",top:0,left:0,right:0,height:3,background:color}}/><div style={{fontSize:22,fontWeight:800,color}}>{val}</div><div style={{fontSize:10,color:V.tMut8}}>{label}</div></div>);
       return (<div style={{display:"flex",gap:10,flexWrap:"wrap"}}>
         {card("Total",total,C.blue,null)}
         {card("Done",done,C.green,allRows.filter(r=>rv(r,"status")==="Done"))}
         {card("In Progress",inProg,C.orange,allRows.filter(r=>rv(r,"status")==="In Progress"||rv(r,"status")==="Working on it"))}
         {card("Stuck",stuck,C.red,allRows.filter(r=>rv(r,"status")==="Stuck"))}
-        {card("Overdue",overdueItems.length,"#ff642e",overdueItems)}
+        {card("Overdue",overdueItems.length,C.flame,overdueItems)}
         {card("Done %",pct+"%",C.purple,null)}</div>);}
     if(w.id==="boardProg"&&!w.custom){
       return boardStats.length===0?<div style={{color:"#ccc",fontSize:12}}>No boards</div>
@@ -916,15 +834,14 @@ const DashboardBoard=memo(({boards})=>{
       return recentHist.length===0?<div style={{color:"#aaa",fontSize:12}}>No activity</div>
         :<div>{recentHist.slice(0,6).map((h,i)=>(<div key={i} style={{fontSize:11,padding:"3px 0",borderBottom:"1px solid #f7f7f7",color:V.tSoft}}><b>{h.action}</b> {(h.detail||"").slice(0,40)} <span style={{color:"#aaa"}}>· {h.boardName}</span></div>))}</div>;}
     if(w.type==="note"){
-      return (<textarea value={w.text||""} onChange={e=>{const v=e.target.value;setWidgets(ws=>ws.map(x=>x.id===w.id?{...x,text:v}:x));}} placeholder="Type your note..." style={{width:"100%",border:"none",outline:"none",resize:"vertical",fontSize:12,background:"transparent",fontFamily:"inherit",minHeight:50,boxSizing:"border-box"}}/>);
-    }
+      return (<textarea value={w.text||""} onChange={e=>{const v=e.target.value;setWidgets(ws=>ws.map(x=>x.id===w.id?{...x,text:v}:x));}} placeholder="Type your note..." style={{width:"100%",border:"none",outline:"none",resize:"vertical",fontSize:12,background:"transparent",fontFamily:"inherit",minHeight:50,boxSizing:"border-box"}}/>);}
     const data=agg(w.dim);
     if(w.type==="pie") return renderPie(data,w.dim);
     if(w.type==="bar") return renderBar(data,w.dim);
     if(w.type==="hbar") return renderHBar(data,w.dim);
     if(w.type==="number") return renderNumber(data,w.dim);
     if(w.type==="list") return renderList(data,w.dim);
-    if(w.type==="chips") return data.length>0?<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{data.map(d=>(<div key={d.name} onClick={()=>drillDim(w.dim,d.name)} style={{background:V.rAlt,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,display:"flex",gap:4,alignItems:"center"}} onMouseEnter={e=>e.currentTarget.style.background="#e6f0ff"} onMouseLeave={e=>e.currentTarget.style.background=V.rHov}><span style={{fontWeight:600}}>{d.name}</span><span style={{color:V.tMut8}}>{d.value}</span></div>))}</div>:<div style={{color:"#ccc",fontSize:12}}>No data</div>;
+    if(w.type==="chips") return data.length>0?<div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{data.map(d=>(<div key={d.name} onClick={()=>drillDim(w.dim,d.name)} style={{background:V.rAlt,borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:12,display:"flex",gap:4,alignItems:"center"}} onMouseEnter={e=>e.currentTarget.style.background=C.hlBlue} onMouseLeave={e=>e.currentTarget.style.background=V.rHov}><span style={{fontWeight:600}}>{d.name}</span><span style={{color:V.tMut8}}>{d.value}</span></div>))}</div>:<div style={{color:"#ccc",fontSize:12}}>No data</div>;
     return (<div style={{color:"#ccc",fontSize:12}}>Unknown type</div>);};
 
   const drillFilt=drillIn?.filter||"";
@@ -932,7 +849,7 @@ const DashboardBoard=memo(({boards})=>{
   const drillPanel=drillIn?(<div style={{position:"fixed",top:0,right:0,bottom:0,width:460,background:V.card,boxShadow:"-4px 0 24px rgba(0,0,0,.15)",zIndex:100010,display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
     <div style={{padding:"14px 18px",borderBottom:B.bdr,..._fc,gap:8}}>
       <span style={{fontSize:15,fontWeight:700,flex:1}}>{drillIn.title}</span>
-      <span style={{background:"#e6f0ff",color:C.blue,borderRadius:8,padding:"2px 10px",fontSize:12,fontWeight:700}}>{drillShown.length}</span>
+      <span style={{background:C.hlBlue,color:C.blue,borderRadius:8,padding:"2px 10px",fontSize:12,fontWeight:700}}>{drillShown.length}</span>
       <button onClick={()=>setDrillIn(null)} style={{background:"none",border:"none",fontSize:18,cursor:"pointer",color:V.tMut}}>✕</button></div>
     <div style={{padding:"8px 18px",borderBottom:B.bdrS}}>
       <input value={drillFilt} onChange={e=>setDrillIn(d=>({...d,filter:e.target.value}))} placeholder="Filter items..." style={{width:"100%",border:B.bdr,borderRadius:6,padding:"6px 10px",fontSize:12,outline:"none",boxSizing:"border-box"}}/></div>
@@ -948,9 +865,7 @@ const DashboardBoard=memo(({boards})=>{
 
   const resetAdd=()=>{setAddOpen(false);setAddStep(1);setAddType("pie");setAddDim("status");setAddTitle("");setAddNoteText("");};
   const createWidget=()=>{
-    const id="custom_"+uid();
-    const label=addTitle||(DATA_DIMS.find(d=>d.id===addDim)?.label||addDim)+" "+(CHART_TYPES.find(c=>c.id===addType)?.label||"");
-    const w={id,label,emoji:CHART_TYPES.find(c=>c.id===addType)?.emoji||"📊",type:addType,dim:addDim,on:true,custom:true};
+    const id="custom_"+uid();const label=addTitle||(DATA_DIMS.find(d=>d.id===addDim)?.label||addDim)+" "+(CHART_TYPES.find(c=>c.id===addType)?.label||"");const w={id,label,emoji:CHART_TYPES.find(c=>c.id===addType)?.emoji||"📊",type:addType,dim:addDim,on:true,custom:true};
     if(addType==="note") w.text=addNoteText;
     setWidgets(prev=>[...prev,w]);
     resetAdd();};
@@ -964,7 +879,7 @@ const DashboardBoard=memo(({boards})=>{
           {addStep===1&&<>
             <div style={{fontSize:12,color:V.tMut8,marginBottom:10}}>Choose chart type:</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
-              {CHART_TYPES.map(ct=>(<div key={ct.id} onClick={()=>setAddType(ct.id)} style={{border:"2px solid "+(addType===ct.id?C.purple:"#e6e9ef"),borderRadius:8,padding:"12px 8px",cursor:"pointer",textAlign:"center",background:addType===ct.id?"#f5f3ff":"#fff",transition:"all .1s"}}>
+              {CHART_TYPES.map(ct=>(<div key={ct.id} onClick={()=>setAddType(ct.id)} style={{border:"2px solid "+(addType===ct.id?C.purple:C.hlGrey),borderRadius:8,padding:"12px 8px",cursor:"pointer",textAlign:"center",background:addType===ct.id?C.lgPurp:"#fff",transition:"all .1s"}}>
                 <div style={{fontSize:20}}>{ct.emoji}</div>
                 <div style={{fontSize:11,fontWeight:600,color:addType===ct.id?C.purple:"#555",marginTop:4}}>{ct.label}</div></div>))}</div>
             <button onClick={()=>setAddStep(addType==="note"?3:2)} style={{marginTop:16,width:"100%",padding:"8px",border:"none",borderRadius:6,background:C.purple,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>Next →</button>
@@ -972,8 +887,7 @@ const DashboardBoard=memo(({boards})=>{
           {addStep===2&&<>
             <div style={{fontSize:12,color:V.tMut8,marginBottom:10}}>What data should it display?</div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {DATA_DIMS.map(dd=>(<div key={dd.id} onClick={()=>setAddDim(dd.id)} style={{border:"2px solid "+(addDim===dd.id?C.purple:"#e6e9ef"),borderRadius:8,padding:"10px 12px",cursor:"pointer",background:addDim===dd.id?"#f5f3ff":"#fff",fontSize:13,fontWeight:addDim===dd.id?700:400,color:addDim===dd.id?C.purple:"#555"}}>{dd.label}</div>))}
-            </div>
+              {DATA_DIMS.map(dd=>(<div key={dd.id} onClick={()=>setAddDim(dd.id)} style={{border:"2px solid "+(addDim===dd.id?C.purple:C.hlGrey),borderRadius:8,padding:"10px 12px",cursor:"pointer",background:addDim===dd.id?C.lgPurp:"#fff",fontSize:13,fontWeight:addDim===dd.id?700:400,color:addDim===dd.id?C.purple:"#555"}}>{dd.label}</div>))}</div>
             <div style={{display:"flex",gap:8,marginTop:16}}>
               <button onClick={()=>setAddStep(1)} style={{flex:1,padding:"8px",border:B.bdr,borderRadius:6,background:V.card,cursor:"pointer",fontSize:12}}>← Back</button>
               <button onClick={()=>setAddStep(3)} style={{flex:1,padding:"8px",border:"none",borderRadius:6,background:C.purple,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>Next →</button></div>
@@ -988,34 +902,28 @@ const DashboardBoard=memo(({boards})=>{
           </>}</div></div>
     </div>):null;
 
-  const visible=widgets.filter(w=>w.on);
-  const hidden=widgets.filter(w=>!w.on);
-
+  const visible=widgets.filter(w=>w.on);const hidden=widgets.filter(w=>!w.on);
   return(<div style={{padding:"4px 0",maxWidth:1200}}>
     <div style={{..._fc,gap:8,marginBottom:14,flexWrap:"wrap"}}>
       <button onClick={()=>setAddOpen(true)} style={{padding:"6px 14px",borderRadius:6,border:"1px dashed #6c5ce7",background:"#f8f6ff",cursor:"pointer",fontSize:12,fontWeight:700,color:C.purple}}>+ Add Widget</button>
       {hidden.length>0&&<><span style={{fontSize:11,color:"#aaa",marginLeft:8}}>Hidden:</span>{hidden.map(w=>(<button key={w.id} onClick={()=>setWidgets(ws=>ws.map(x=>x.id===w.id?{...x,on:true}:x))} style={{background:V.rAlt,border:"none",borderRadius:4,padding:"3px 10px",cursor:"pointer",fontSize:11,color:V.tMut8}}>{w.emoji} {w.label} +</button>))}</>}
     </div>
-
     {/* Widget grid */}
     <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14}}>
       {visible.map(w=>{
-        const isOver=cOver===w.id;const isDrag=cDrag===w.id;
-        const isFullRow=w.id==="kpi"&&!w.custom;
+        const isOver=cOver===w.id;const isDrag=cDrag===w.id;const isFullRow=w.id==="kpi"&&!w.custom;
         return(<div key={w.id} draggable onDragStart={()=>setCDrag(w.id)} onDragEnd={()=>{setCDrag(null);setCOver(null);}}
           onDragOver={e=>{e.preventDefault();setCOver(w.id);}} onDrop={e=>{e.preventDefault();onCanvasDrop(w.id);}}
           style={{gridColumn:isFullRow?"1/-1":"auto",opacity:isDrag?0.3:1,outline:isOver?"2px dashed #6c5ce7":"none",outlineOffset:2,transition:"all .12s"}}>
-          <div style={{background:w.type==="note"?"#fffef5":"#fff",borderRadius:10,border:"1px solid "+(w.type==="note"?"#f0e8c0":"#e6e9ef"),padding:isFullRow?0:14,position:"relative"}}>
+          <div style={{background:w.type==="note"?"#fffef5":"#fff",borderRadius:10,border:"1px solid "+(w.type==="note"?"#f0e8c0":C.hlGrey),padding:isFullRow?0:14,position:"relative"}}>
             {/* Widget header (not for KPI row) */}
             {!isFullRow&&<div style={{..._fc,gap:6,marginBottom:8}}>
               <span style={{cursor:"grab",color:"#d0d0d0",fontSize:11,userSelect:"none"}}>⠿</span>
               <span style={{fontSize:12,fontWeight:700,flex:1,color:V.text}}>{w.emoji} {w.label}</span>
               <button onClick={()=>setWidgets(ws=>ws.map(x=>x.id===w.id?{...x,on:false}:x))} title="Hide" style={{background:"none",border:"none",cursor:"pointer",color:"#d0d0d0",fontSize:12,padding:0}} onMouseEnter={e=>e.currentTarget.style.color=C.red} onMouseLeave={e=>e.currentTarget.style.color="#d0d0d0"}>✕</button>
-              {w.custom&&<button onClick={()=>setWidgets(ws=>ws.filter(x=>x.id!==w.id))} title="Delete" style={{background:"none",border:"none",cursor:"pointer",color:"#d0d0d0",fontSize:11,padding:0}} onMouseEnter={e=>e.currentTarget.style.color=C.red} onMouseLeave={e=>e.currentTarget.style.color="#d0d0d0"}>🗑</button>}
-            </div>}
+              {w.custom&&<button onClick={()=>setWidgets(ws=>ws.filter(x=>x.id!==w.id))} title="Delete" style={{background:"none",border:"none",cursor:"pointer",color:"#d0d0d0",fontSize:11,padding:0}} onMouseEnter={e=>e.currentTarget.style.color=C.red} onMouseLeave={e=>e.currentTarget.style.color="#d0d0d0"}>🗑</button>}</div>}
             {isFullRow&&<div style={{padding:"14px 14px 10px"}}>{renderWidget(w)}</div>}
             {!isFullRow&&renderWidget(w)}</div></div>);})}</div>
-
     {addWidgetModal}
     {drillPanel}</div>);});
 
@@ -1023,8 +931,7 @@ const DashboardBoard=memo(({boards})=>{
 const daysDiff=(d)=>{if(!d)return 999;const t=new Date(d),n=new Date();t.setHours(0,0,0,0);n.setHours(0,0,0,0);return Math.ceil((t-n)/(864e5));};
 
 const SummaryBoard=memo(({boards,boardId,onChangeSrc,onGoToItem})=>{
-  const taskBoards=boards.filter(b=>isTask(b));
-  const srcId=boardId||"all";
+  const taskBoards=boards.filter(b=>isTask(b));const srcId=boardId||"all";
   const srcRows=useMemo(()=>{
     if(srcId==="all")return taskBoards.flatMap(b=>b.groups.flatMap(g=>g.rows.map(r=>({...r,_board:b.name,_boardId:b.id,_gId:g.id}))));
     const b=boards.find(x=>x.id===srcId);
@@ -1032,9 +939,7 @@ const SummaryBoard=memo(({boards,boardId,onChangeSrc,onGoToItem})=>{
   },[srcId,boards,taskBoards]);
 
   const blocked=srcRows.filter(r=>{const t=((rv(r,"task")||"")+" "+(rv(r,"notes")||"")).toLowerCase();return rv(r,"status")==="Stuck"||t.includes("block")||t.includes("approv")||t.includes("waiting");});
-  const upcoming=srcRows.filter(r=>!blocked.find(x=>x.id===r.id)&&rv(r,"status")!=="Done"&&(isOverdue(r)||(rv(r,"tlEnd")&&daysDiff(rv(r,"tlEnd"))<=7&&daysDiff(rv(r,"tlEnd"))>=0)));
-  const active=srcRows.filter(r=>rv(r,"status")!=="Done"&&!blocked.find(x=>x.id===r.id)&&!upcoming.find(x=>x.id===r.id));
-  const doneItems=srcRows.filter(r=>rv(r,"status")==="Done");
+  const upcoming=srcRows.filter(r=>!blocked.find(x=>x.id===r.id)&&rv(r,"status")!=="Done"&&(isOverdue(r)||(rv(r,"tlEnd")&&daysDiff(rv(r,"tlEnd"))<=7&&daysDiff(rv(r,"tlEnd"))>=0)));const active=srcRows.filter(r=>rv(r,"status")!=="Done"&&!blocked.find(x=>x.id===r.id)&&!upcoming.find(x=>x.id===r.id));const doneItems=srcRows.filter(r=>rv(r,"status")==="Done");
   const [expanded,setExpanded]=useState({});
 
   const tag=(r)=>{
@@ -1070,11 +975,11 @@ const SummaryBoard=memo(({boards,boardId,onChangeSrc,onGoToItem})=>{
           {rv(r,"effortSpent")&&<div><span style={{color:V.tMut,fontSize:11}}>Effort Spent</span><div style={{fontWeight:500}}>{rv(r,"effortSpent")}</div></div>}
           {rv(r,"dependentOn")&&<div><span style={{color:V.tMut,fontSize:11}}>Depends On</span><div style={{fontWeight:500,color:C.violet}}>{rv(r,"dependentOn")}</div></div>}</div>
         {/* Tags */}
-        {rvArr(r,"tags").length>0&&<div style={{marginBottom:8,display:"flex",gap:4,flexWrap:"wrap"}}>{rvArr(r,"tags").map(t=>(<span key={t} style={{background:"#e6f0ff",color:C.blue,padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600}}>{t}</span>))}</div>}
+        {rvArr(r,"tags").length>0&&<div style={{marginBottom:8,display:"flex",gap:4,flexWrap:"wrap"}}>{rvArr(r,"tags").map(t=>(<span key={t} style={{background:C.hlBlue,color:C.blue,padding:"2px 8px",borderRadius:10,fontSize:10,fontWeight:600}}>{t}</span>))}</div>}
         {/* Subitems progress */}
         {rvArr(r,"subitems").length>0&&<div style={{marginBottom:8,padding:"8px 10px",background:V.rAlt,borderRadius:6}}>
           <div style={{..._fc,gap:8,marginBottom:6}}><b style={{fontSize:11}}>Subitems</b><span style={{fontSize:10,color:V.tMut}}>{rvArr(r,"subitems").filter(s=>rv(s,"status")==="Done").length}/{rvArr(r,"subitems").length} done</span></div>
-          <div style={{display:"flex",height:5,borderRadius:3,overflow:"hidden",background:"#e6e9ef",marginBottom:6}}><div style={{width:Math.round(rvArr(r,"subitems").filter(s=>rv(s,"status")==="Done").length/rvArr(r,"subitems").length*100)+"%",background:C.green,borderRadius:3}}/></div>
+          <div style={{display:"flex",height:5,borderRadius:3,overflow:"hidden",background:C.hlGrey,marginBottom:6}}><div style={{width:Math.round(rvArr(r,"subitems").filter(s=>rv(s,"status")==="Done").length/rvArr(r,"subitems").length*100)+"%",background:C.green,borderRadius:3}}/></div>
           {rvArr(r,"subitems").map(si=>(<div key={si.id} style={{..._fc,gap:6,padding:"2px 0",fontSize:11}}><span style={{width:6,height:6,borderRadius:"50%",background:SC[rv(si,"status")]||"#ccc",flexShrink:0}}/><span style={{flex:1,textDecoration:rv(si,"status")==="Done"?"line-through":"none",color:rv(si,"status")==="Done"?V.tMut:V.text}}>{rv(si,"task")||"Untitled"}</span>{rv(si,"owner")&&<span style={{color:V.tMut,fontSize:10}}>{rv(si,"owner")}</span>}<span style={{fontSize:9,padding:"1px 5px",borderRadius:3,background:SC[rv(si,"status")]||"#ccc",color:"#fff"}}>{rv(si,"status")}</span></div>))}
         </div>}
         {/* Notes */}
@@ -1086,7 +991,6 @@ const SummaryBoard=memo(({boards,boardId,onChangeSrc,onGoToItem})=>{
         {/* Action button */}
         {onGoToItem&&<button onClick={()=>onGoToItem(r._boardId,r._gId,r.id)} style={{marginTop:2,padding:"6px 16px",border:"none",borderRadius:6,background:C.blue,color:"#fff",cursor:"pointer",fontSize:12,fontWeight:600,..._fc,gap:6}}>↗ Open in board</button>}</div>}</div>))}
     {items.length>12&&<div style={{fontSize:10,color:"#aaa"}}>+{items.length-12} more</div>}</div>);
-
   return(<div style={{padding:"4px 0",maxWidth:700}}>
     <div style={{..._fc,gap:10,marginBottom:16}}>
       <select value={srcId} onChange={e=>onChangeSrc(e.target.value)} style={{padding:"5px 10px",border:B.bdr,borderRadius:6,fontSize:12,outline:"none"}}>
@@ -1099,9 +1003,7 @@ const SummaryBoard=memo(({boards,boardId,onChangeSrc,onGoToItem})=>{
     {sec("✅","Done",C.green,doneItems.slice(0,5),"Nothing closed yet")}</div>);});
 
 const DetailPanel=({row,gId,onUpdate,onAddUpdate,onClose})=>{
-  const ctx=useSlate()||{};const people=ctx.people||[];const statuses=ctx.bStatuses||[];const priorities=ctx.bPriorities||[];
-  const [tab,setTab]=useState("details");
-  const fileRef=useRef(null);
+  const ctx=useSlate()||{};const people=ctx.people||[];const statuses=ctx.bStatuses||[];const priorities=ctx.bPriorities||[];const [tab,setTab]=useState("details");const fileRef=useRef(null);
   const handleFileUpload=(e)=>{
     const file=e.target.files?.[0];if(!file)return;
     if(file.size>512000){alert("File too large. Max 500KB for localStorage storage.");return;}
@@ -1110,23 +1012,22 @@ const DetailPanel=({row,gId,onUpdate,onAddUpdate,onClose})=>{
       const f={id:uid(),name:file.name,size:file.size,type:file.type,data:ev.target.result,uploadedAt:ts()};
       onUpdate("files",[...rvArr(row,"files"),f]);
     };reader.readAsDataURL(file);e.target.value="";};
-  const removeFile=(fId)=>onUpdate("files",rvArr(row,"files").filter(f=>f.id!==fId));
-  const fmtSize=(b)=>b<1024?b+"B":b<1048576?Math.round(b/1024)+"KB":Math.round(b/1048576)+"MB";
+  const removeFile=(fId)=>onUpdate("files",rvArr(row,"files").filter(f=>f.id!==fId));const fmtSize=(b)=>b<1024?b+"B":b<1048576?Math.round(b/1024)+"KB":Math.round(b/1048576)+"MB";
   return(<SidePanel title={rv(row,"task")||"Untitled"} sub="Item details" onClose={onClose} width={500}>
-    <div style={{display:"flex",borderBottom:"1px solid #eee",padding:"0 20px"}}>{["details","files","updates","activity"].map(t=>(<div key={t} onClick={()=>setTab(t)} style={{padding:"10px 16px",fontSize:13,fontWeight:tab===t?600:400,borderBottom:tab===t?"2px solid #0073ea":"2px solid transparent",cursor:"pointer",color:tab===t?C.blue:"#666",textTransform:"capitalize"}}>{t}{t==="files"&&rvArr(row,"files").length>0&&<span style={{marginLeft:4,background:"#e6f0ff",color:C.blue,borderRadius:8,padding:"0 5px",fontSize:10}}>{rvArr(row,"files").length}</span>}</div>))}</div>
+    <div style={{display:"flex",borderBottom:B.bdrS,padding:"0 20px"}}>{["details","files","updates","activity"].map(t=>(<div key={t} onClick={()=>setTab(t)} style={{padding:"10px 16px",fontSize:13,fontWeight:tab===t?600:400,borderBottom:tab===t?"2px solid #0073ea":"2px solid transparent",cursor:"pointer",color:tab===t?C.blue:"#666",textTransform:"capitalize"}}>{t}{t==="files"&&rvArr(row,"files").length>0&&<span style={{marginLeft:4,background:C.hlBlue,color:C.blue,borderRadius:8,padding:"0 5px",fontSize:10}}>{rvArr(row,"files").length}</span>}</div>))}</div>
     <div style={{flex:1,overflowY:"auto",padding:20}}>
       {tab==="details"&&<div>
         {[{l:"Task",k:"task",t:"text"},{l:"Owner",k:"owner",t:"s",o:people},{l:"Status",k:"status",t:"s",o:statuses},{l:"Priority",k:"priority",t:"s",o:priorities},{l:"Start",k:"tlStart",t:"date"},{l:"End",k:"tlEnd",t:"date"}].map(f=>(<div key={f.k} style={{..._fc,marginBottom:10,gap:12}}><div style={{width:100,fontSize:12,fontWeight:600,color:V.tSoft,flexShrink:0}}>{f.l}</div><div style={{flex:1}}>{f.t==="text"?<input value={row[f.k]||""} onChange={e=>onUpdate(f.k,e.target.value)} style={{width:"100%",padding:"6px 10px",border:B.inp,borderRadius:6,fontSize:13,outline:"none",boxSizing:"border-box"}}/>:f.t==="date"?<input type="date" value={row[f.k]||""} onChange={e=>onUpdate(f.k,e.target.value)} style={{padding:"6px 10px",border:B.inp,borderRadius:6,fontSize:13,outline:"none"}}/>:<select value={row[f.k]||""} onChange={e=>onUpdate(f.k,e.target.value)} style={{padding:"6px 10px",border:B.inp,borderRadius:6,fontSize:13,outline:"none",width:"100%"}}>{f.o.map(o=>(<option key={o}>{o}</option>))}</select>}</div></div>))}
-        {isOverdue(row)&&<div style={{padding:"8px 12px",background:"#fff0f0",borderRadius:6,border:"1px solid #ffd0d0",color:C.red,fontSize:12,fontWeight:600,marginBottom:10}}>⚠ This item is overdue</div>}
-        {rvArr(row,"tags").length>0&&<div style={{marginBottom:12}}><span style={{fontSize:12,fontWeight:600,color:V.tSoft}}>Tags: </span>{rvArr(row,"tags").map(t=>(<span key={t} style={{background:"#e6f0ff",color:C.blue,padding:"2px 8px",borderRadius:4,fontSize:11,marginRight:4}}>{t}</span>))}</div>}
-        <div style={{borderTop:"1px solid #f0f0f0",paddingTop:12,marginTop:4}}>
+        {isOverdue(row)&&<div style={{padding:"8px 12px",background:C.errBg,borderRadius:6,border:"1px solid #ffd0d0",color:C.red,fontSize:12,fontWeight:600,marginBottom:10}}>⚠ This item is overdue</div>}
+        {rvArr(row,"tags").length>0&&<div style={{marginBottom:12}}><span style={{fontSize:12,fontWeight:600,color:V.tSoft}}>Tags: </span>{rvArr(row,"tags").map(t=>(<span key={t} style={{background:C.hlBlue,color:C.blue,padding:"2px 8px",borderRadius:4,fontSize:11,marginRight:4}}>{t}</span>))}</div>}
+        <div style={{borderTop:B.bdrS,paddingTop:12,marginTop:4}}>
           <div style={{fontSize:12,fontWeight:700,color:V.tSoft,marginBottom:10}}>COMPLETION TRACKING</div>
           {[{l:"Completion Date",k:"completionDate",t:"date"},{l:"Completion Status",k:"completionStatus",t:"s",o:COMP_STATS},{l:"Dependent On",k:"dependentOn",t:"text"},{l:"Planned Effort",k:"plannedEffort",t:"text"},{l:"Effort Spent",k:"effortSpent",t:"text"}].map(f=>(<div key={f.k} style={{..._fc,marginBottom:10,gap:12}}><div style={{width:100,fontSize:12,fontWeight:600,color:V.tSoft,flexShrink:0}}>{f.l}</div><div style={{flex:1}}>{f.t==="text"?<input value={row[f.k]||""} onChange={e=>onUpdate(f.k,e.target.value)} style={{width:"100%",padding:"5px 10px",border:B.inp,borderRadius:6,fontSize:12,outline:"none",boxSizing:"border-box"}} placeholder="-"/>:f.t==="date"?<input type="date" value={row[f.k]||""} onChange={e=>onUpdate(f.k,e.target.value)} style={{padding:"5px 10px",border:B.inp,borderRadius:6,fontSize:12,outline:"none"}}/>:<select value={row[f.k]||"-"} onChange={e=>onUpdate(f.k,e.target.value)} style={{padding:"5px 10px",border:B.inp,borderRadius:6,fontSize:12,outline:"none",width:"100%",background:COMP_SC[row[f.k]]?COMP_SC[row[f.k]]+"20":"transparent"}}>{f.o.map(o=>(<option key={o}>{o}</option>))}</select>}</div></div>))}
         </div>
-        <div style={{borderTop:"1px solid #f0f0f0",paddingTop:12,marginTop:4}}>
+        <div style={{borderTop:B.bdrS,paddingTop:12,marginTop:4}}>
           <div style={{fontSize:12,fontWeight:700,color:V.tSoft,marginBottom:6}}>NOTES</div>
           <textarea value={rv(row,"notes")||""} onChange={e=>onUpdate("notes",e.target.value)} placeholder="Add notes..." rows={3} style={{width:"100%",border:B.inp,borderRadius:6,padding:"8px 10px",fontSize:12,outline:"none",resize:"vertical",fontFamily:"inherit",boxSizing:"border-box"}}/></div>
-        {rvArr(row,"subitems").length>0&&<div style={{marginTop:12,borderTop:"1px solid #f0f0f0",paddingTop:12}}><div style={{fontSize:12,fontWeight:700,color:V.tSoft,marginBottom:8}}>SUBITEMS ({rvArr(row,"subitems").length})</div>{rvArr(row,"subitems").map(si=>(<div key={si.id} style={{..._fc,gap:8,padding:"6px 10px",background:V.rAltF,borderRadius:6,marginBottom:4}}><span style={{flex:1,fontSize:12}}>{rv(si,"task")||"Untitled"}</span><span style={{fontSize:11,padding:"2px 6px",borderRadius:3,background:SC[rv(si,"status")]||"#ccc",color:"#fff"}}>{rv(si,"status")}</span></div>))}</div>}
+        {rvArr(row,"subitems").length>0&&<div style={{marginTop:12,borderTop:B.bdrS,paddingTop:12}}><div style={{fontSize:12,fontWeight:700,color:V.tSoft,marginBottom:8}}>SUBITEMS ({rvArr(row,"subitems").length})</div>{rvArr(row,"subitems").map(si=>(<div key={si.id} style={{..._fc,gap:8,padding:"6px 10px",background:V.rAltF,borderRadius:6,marginBottom:4}}><span style={{flex:1,fontSize:12}}>{rv(si,"task")||"Untitled"}</span><span style={{fontSize:11,padding:"2px 6px",borderRadius:3,background:SC[rv(si,"status")]||"#ccc",color:"#fff"}}>{rv(si,"status")}</span></div>))}</div>}
       </div>}
       {tab==="files"&&<div>
         <input ref={fileRef} type="file" onChange={handleFileUpload} style={{display:"none"}}/>
@@ -1136,7 +1037,7 @@ const DetailPanel=({row,gId,onUpdate,onAddUpdate,onClose})=>{
           const isImg=f.type?.startsWith("image/");
           return(<div key={f.id} style={{..._fc,gap:10,padding:"10px 12px",background:V.rAltF,borderRadius:8,marginBottom:8,border:B.bdrS}}>
             {isImg?<img src={f.data} alt={f.name} style={{width:40,height:40,borderRadius:6,objectFit:"cover",flexShrink:0}}/>
-            :<div style={{width:40,height:40,borderRadius:6,background:"#e6f0ff",..._fcc,flexShrink:0,fontSize:16}}>📄</div>}
+            :<div style={{width:40,height:40,borderRadius:6,background:C.hlBlue,..._fcc,flexShrink:0,fontSize:16}}>📄</div>}
             <div style={{flex:1,minWidth:0}}>
               <div style={{fontSize:13,fontWeight:600,..._ell}}>{f.name}</div>
               <div style={{fontSize:10,color:V.tMut}}>{fmtSize(f.size)} · {f.uploadedAt}</div></div>
@@ -1167,8 +1068,8 @@ const DetailPanel=({row,gId,onUpdate,onAddUpdate,onClose})=>{
           return null;})}</div>}</div></SidePanel>);};
 
 const NotifsPanel=memo(({notifs,setNotifs,onClose})=>(<SidePanel title="🔔 Notifications" onClose={onClose} width={380}>
-  <div style={{padding:"8px 16px",borderBottom:"1px solid #eee",display:"flex",gap:8}}><button onClick={()=>setNotifs(n=>n.map(x=>({...x,read:true})))} style={{fontSize:12,color:C.blue,background:"none",border:"none",cursor:"pointer"}}>Mark all read</button><button onClick={()=>setNotifs([])} style={{fontSize:12,color:C.red,background:"none",border:"none",cursor:"pointer"}}>Clear all</button></div>
-  <div style={{flex:1,overflowY:"auto",padding:12}}>{notifs.map(n=>(<div key={n.id} onClick={()=>setNotifs(ns=>ns.map(x=>x.id===n.id?{...x,read:true}:x))} style={{padding:"12px 14px",background:n.read?"transparent":"#f0f7ff",borderRadius:8,marginBottom:4,cursor:"pointer",borderLeft:n.read?"3px solid transparent":`3px solid ${n.type==="warning"?C.orange:n.type==="success"?C.green:C.blue}`,transition:"background .15s"}} onMouseEnter={e=>e.currentTarget.style.background=n.read?"#f7f8fa":"#e6f0ff"} onMouseLeave={e=>e.currentTarget.style.background=n.read?"transparent":"#f0f7ff"}>
+  <div style={{padding:"8px 16px",borderBottom:B.bdrS,display:"flex",gap:8}}><button onClick={()=>setNotifs(n=>n.map(x=>({...x,read:true})))} style={{fontSize:12,color:C.blue,background:"none",border:"none",cursor:"pointer"}}>Mark all read</button><button onClick={()=>setNotifs([])} style={{fontSize:12,color:C.red,background:"none",border:"none",cursor:"pointer"}}>Clear all</button></div>
+  <div style={{flex:1,overflowY:"auto",padding:12}}>{notifs.map(n=>(<div key={n.id} onClick={()=>setNotifs(ns=>ns.map(x=>x.id===n.id?{...x,read:true}:x))} style={{padding:"12px 14px",background:n.read?"transparent":"#f0f7ff",borderRadius:8,marginBottom:4,cursor:"pointer",borderLeft:n.read?"3px solid transparent":`3px solid ${n.type==="warning"?C.orange:n.type==="success"?C.green:C.blue}`,transition:"background .15s"}} onMouseEnter={e=>e.currentTarget.style.background=n.read?"#f7f8fa":C.hlBlue} onMouseLeave={e=>e.currentTarget.style.background=n.read?"transparent":"#f0f7ff"}>
     <div style={{fontSize:13,color:V.text,fontWeight:n.read?400:600}}>{n.type==="warning"?"⚠️ ":n.type==="success"?"✅ ":n.type==="assignment"?"👤 ":n.type==="mention"?"💬 ":"🔔 "}{n.text}</div>
     <div style={{fontSize:11,color:V.tMut,marginTop:4}}>{n.time}</div>
   </div>))}</div></SidePanel>));
@@ -1199,7 +1100,7 @@ const ColCtxMenu=({pos,col,onClose,onSort,onAddCol,onRename,onHide,onDelete,onPi
         {divider:true},
         {icon:"🗑",label:"Delete column",danger:true,fn:()=>{onDelete();onClose();}},
       ]:[{icon:"+",label:"Add new column",fn:()=>setAddSub("right")}]).map((o,i)=>o.divider?<div key={i} style={{borderTop:B.bdrS,margin:"4px 0"}}/>:
-        <div key={i} onClick={o.fn} style={{padding:"7px 12px",fontSize:13,cursor:"pointer",borderRadius:4,color:o.danger?C.red:"#333",..._fc,gap:8}} onMouseEnter={e=>e.currentTarget.style.background=o.danger?"#fff0f0":"#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+        <div key={i} onClick={o.fn} style={{padding:"7px 12px",fontSize:13,cursor:"pointer",borderRadius:4,color:o.danger?C.red:"#333",..._fc,gap:8}} onMouseEnter={e=>e.currentTarget.style.background=o.danger?C.errBg:"#f5f5f5"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
           <span style={{fontSize:12,width:18,textAlign:"center"}}>{o.icon}</span>{o.label}</div>)}
     </>}
     {addSub&&<div>
@@ -1210,29 +1111,28 @@ const ColCtxMenu=({pos,col,onClose,onSort,onAddCol,onRename,onHide,onDelete,onPi
         <span>{ct.label}</span></div>))}</div>}</div>);};
 
 const SyncModal=({board,allBoards,onClose,onAddSync,onRemoveSync,onLinkPortfolio,isLinkedToPortfolio})=>{
-  const targets=board?.syncTargets||[];
-  const available=allBoards.filter(b=>b.id!==board?.id&&!targets.some(t=>t.boardId===b.id));
+  const targets=board?.syncTargets||[];const available=allBoards.filter(b=>b.id!==board?.id&&!targets.some(t=>t.boardId===b.id));
   return(<div data-modal-backdrop style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:100000,..._fcc}} onClick={onClose}><div onClick={e=>e.stopPropagation()} style={{background:V.card,borderRadius:12,width:480,padding:24,maxHeight:"80vh",overflowY:"auto"}}>
     <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}><h3 style={{margin:0}}>🔗 Sync "{board?.name}" to boards</h3><span onClick={onClose} style={{cursor:"pointer",fontSize:18,color:V.tMut}}>✕</span></div>
     <p style={{fontSize:13,color:V.tSoft,margin:"0 0 16px"}}>Connect this board to other boards. Changes here will automatically sync status, progress, and updates as a row on the target board.</p>
     {targets.length>0&&<div style={{marginBottom:16}}>
       <div style={{fontSize:12,fontWeight:700,color:V.tSoft,marginBottom:8}}>CURRENTLY SYNCED TO</div>
-      {targets.map(t=>{const tb=allBoards.find(b=>b.id===t.boardId);return(<div key={t.boardId} style={{..._fc,gap:10,padding:"8px 12px",background:"#f5f3ff",borderRadius:8,marginBottom:6,border:"1px solid #e0d8ff"}}>
+      {targets.map(t=>{const tb=allBoards.find(b=>b.id===t.boardId);return(<div key={t.boardId} style={{..._fc,gap:10,padding:"8px 12px",background:C.lgPurp,borderRadius:8,marginBottom:6,border:"1px solid #e0d8ff"}}>
         <span style={{fontSize:14}}>{tb?.icon||"📋"}</span>
         <span style={{flex:1,fontSize:13,fontWeight:600,color:V.text}}>{tb?.name||"Unknown"}</span>
-        <span style={{fontSize:11,color:C.violet,background:"#f0eeff",padding:"2px 8px",borderRadius:10}}>Live sync</span>
+        <span style={{fontSize:11,color:C.violet,background:C.hlPurp,padding:"2px 8px",borderRadius:10}}>Live sync</span>
         <span onClick={()=>onRemoveSync(t.boardId)} style={{cursor:"pointer",color:C.red,fontSize:12,fontWeight:700}}>✕</span></div>);})}</div>}
-    {board?.linkedMainBoardId&&<div style={{marginBottom:16,padding:"8px 12px",background:"#f0fffe",borderRadius:8,border:"1px solid #d8ffe8",fontSize:12,color:"#037f4c"}}>
+    {board?.linkedMainBoardId&&<div style={{marginBottom:16,padding:"8px 12px",background:"#f0fffe",borderRadius:8,border:"1px solid #d8ffe8",fontSize:12,color:C.teal}}>
       📊 Also synced to portfolio: <b>{allBoards.find(b=>b.id===board.linkedMainBoardId)?.name}</b> (primary link)</div>}
     <div style={{fontSize:12,fontWeight:700,color:V.tSoft,marginBottom:8}}>ADD NEW SYNC TARGET</div>
     {available.length===0?<div style={{color:"#aaa",fontSize:13,padding:12,textAlign:"center"}}>No more boards available to sync to</div>
     :<div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-      {available.map(b=>(<div key={b.id} onClick={()=>onAddSync(b.id)} style={{padding:"12px 14px",border:B.bdr,borderRadius:8,cursor:"pointer",transition:"all .15s",..._fc,gap:8}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.blue;e.currentTarget.style.background="#f0f7ff";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e6e9ef";e.currentTarget.style.background="transparent";}}>
+      {available.map(b=>(<div key={b.id} onClick={()=>onAddSync(b.id)} style={{padding:"12px 14px",border:B.bdr,borderRadius:8,cursor:"pointer",transition:"all .15s",..._fc,gap:8}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.blue;e.currentTarget.style.background="#f0f7ff";}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.hlGrey;e.currentTarget.style.background="transparent";}}>
         <span style={{fontSize:16}}>{b.icon||"📋"}</span>
         <div><div style={{fontSize:13,fontWeight:600}}>{b.name}</div><div style={{fontSize:10,color:V.tMut}}>{b.cat} • {b.groups.reduce((a,g)=>a+g.rows.length,0)} items</div></div></div>))}</div>}
     {onLinkPortfolio&&<div style={{marginTop:12,borderTop:B.bdrS,paddingTop:12}}>
       <div style={{fontSize:12,fontWeight:700,color:V.tSoft,marginBottom:8}}>PORTFOLIO SYNC</div>
-      <button onClick={()=>{onLinkPortfolio();onClose();}} style={{width:"100%",padding:"10px 14px",border:isLinkedToPortfolio?"1px solid #00c875":"1px dashed #a25ddc",borderRadius:8,background:isLinkedToPortfolio?"#f0fffe":"#f8f5ff",cursor:"pointer",fontSize:13,color:isLinkedToPortfolio?"#037f4c":C.violet,fontWeight:600,..._fc,gap:8}}>
+      <button onClick={()=>{onLinkPortfolio();onClose();}} style={{width:"100%",padding:"10px 14px",border:isLinkedToPortfolio?"1px solid #00c875":"1px dashed #a25ddc",borderRadius:8,background:isLinkedToPortfolio?"#f0fffe":"#f8f5ff",cursor:"pointer",fontSize:13,color:isLinkedToPortfolio?C.teal:C.violet,fontWeight:600,..._fc,gap:8}}>
         {isLinkedToPortfolio?"📊 Synced to Portfolio ✓":"📊 Link to Portfolio"}</button></div>}
   </div></div>);};
 
@@ -1247,30 +1147,29 @@ const ConfirmModal=memo(({message,onConfirm,onCancel})=>(<div data-modal-backdro
       <button onClick={onConfirm} style={{padding:"8px 20px",border:"none",borderRadius:6,background:C.red,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>Delete</button></div></div></div>));
 
 const TemplateModal=memo(({onSelect,onClose,boards,mainBoards,boardCats})=>{
-  const [mode,setMode]=useState("template");const [name,setName]=useState("");const [linkTo,setLinkTo]=useState("");const [linkItem,setLinkItem]=useState("");const [folder,setFolder]=useState("ACTIVE");const [icon,setIcon]=useState("📋");const [iconOpen,setIconOpen]=useState(false);
-  const mbs=(mainBoards||boards.filter(b=>isPortfolio(b)));
+  const [mode,setMode]=useState("template");const [name,setName]=useState("");const [linkTo,setLinkTo]=useState("");const [linkItem,setLinkItem]=useState("");const [folder,setFolder]=useState("ACTIVE");const [icon,setIcon]=useState("📋");const [iconOpen,setIconOpen]=useState(false);const mbs=(mainBoards||boards.filter(b=>isPortfolio(b)));
   const items=linkTo?((mbs.find(b=>b.id===linkTo)||{groups:[]}).groups.flatMap(g=>g.rows)):[];
   return(<div data-modal-backdrop style={{position:"fixed",inset:0,background:"rgba(0,0,0,.4)",zIndex:100000,..._fcc}} onClick={onClose}><div onClick={e=>e.stopPropagation()} style={{background:V.card,borderRadius:12,width:560,padding:24,maxHeight:"85vh",overflowY:"auto"}}>
   <h3 style={{margin:"0 0 4px"}}>Create new board</h3><p style={{color:V.tMut8,fontSize:13,margin:"0 0 16px"}}>Start from a template or create a linked task board</p>
   <div style={{display:"flex",gap:8,marginBottom:16}}>
-    {[["template","📋 Template"],["linked","🔗 Linked Board"]].map(([k,l])=>(<button key={k} onClick={()=>setMode(k)} style={{flex:1,padding:"10px",borderRadius:8,border:mode===k?"2px solid #6c5ce7":"2px solid #e0e0e0",background:mode===k?"#f5f3ff":"#fff",cursor:"pointer",fontSize:13,fontWeight:mode===k?700:400,color:mode===k?C.purple:"#555"}}>{l}</button>))}
+    {[["template","📋 Template"],["linked","🔗 Linked Board"]].map(([k,l])=>(<button key={k} onClick={()=>setMode(k)} style={{flex:1,padding:"10px",borderRadius:8,border:mode===k?"2px solid #6c5ce7":"2px solid #e0e0e0",background:mode===k?C.lgPurp:"#fff",cursor:"pointer",fontSize:13,fontWeight:mode===k?700:400,color:mode===k?C.purple:"#555"}}>{l}</button>))}
   </div>
   {mode==="template"&&<div>
     <div style={{marginBottom:12,..._fc,gap:10}}>
       <label style={{fontSize:12,color:V.tSoft,fontWeight:600}}>Board icon:</label>
-      <div style={{position:"relative",display:"inline-block"}}><div onClick={()=>setIconOpen(!iconOpen)} style={{width:36,height:36,borderRadius:6,border:"2px solid "+(iconOpen?C.purple:"#e0e0e0"),..._fcc,fontSize:20,cursor:"pointer",background:iconOpen?"#f5f3ff":"#fafafa",transition:"all .15s"}}>{icon}</div>
+      <div style={{position:"relative",display:"inline-block"}}><div onClick={()=>setIconOpen(!iconOpen)} style={{width:36,height:36,borderRadius:6,border:"2px solid "+(iconOpen?C.purple:"#e0e0e0"),..._fcc,fontSize:20,cursor:"pointer",background:iconOpen?C.lgPurp:"#fafafa",transition:"all .15s"}}>{icon}</div>
         {iconOpen&&<div style={{position:"absolute",top:"100%",left:0,marginTop:6,background:V.card,border:B.bdr,borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,.15)",padding:10,display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,width:240,zIndex:10}}>
-          {BOARD_ICONS.map(ic=>(<div key={ic} onClick={()=>{setIcon(ic);setIconOpen(false);}} style={{width:34,height:34,borderRadius:6,..._fcc,fontSize:18,cursor:"pointer",background:icon===ic?"#f0eeff":"transparent",border:icon===ic?"2px solid #6c5ce7":"2px solid transparent"}} onMouseEnter={e=>e.currentTarget.style.background=V.rHov} onMouseLeave={e=>e.currentTarget.style.background=icon===ic?"#f0eeff":"transparent"}>{ic}</div>))}
+          {BOARD_ICONS.map(ic=>(<div key={ic} onClick={()=>{setIcon(ic);setIconOpen(false);}} style={{width:34,height:34,borderRadius:6,..._fcc,fontSize:18,cursor:"pointer",background:icon===ic?C.hlPurp:"transparent",border:icon===ic?"2px solid #6c5ce7":"2px solid transparent"}} onMouseEnter={e=>e.currentTarget.style.background=V.rHov} onMouseLeave={e=>e.currentTarget.style.background=icon===ic?C.hlPurp:"transparent"}>{ic}</div>))}
         </div>}</div>
       <span style={{fontSize:11,color:"#aaa"}}>Pick an icon, then click a template</span></div>
-    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>{BOARD_TEMPLATES.map((t,i)=>(<div key={i} onClick={()=>onSelect({...t,icon:icon||t.icon})} style={{padding:"16px",border:B.bdr,borderRadius:10,cursor:"pointer",transition:"all .15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.blue;e.currentTarget.style.boxShadow="0 2px 8px rgba(0,115,234,.15)";}} onMouseLeave={e=>{e.currentTarget.style.borderColor="#e6e9ef";e.currentTarget.style.boxShadow="none";}}>
+    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>{BOARD_TEMPLATES.map((t,i)=>(<div key={i} onClick={()=>onSelect({...t,icon:icon||t.icon})} style={{padding:"16px",border:B.bdr,borderRadius:10,cursor:"pointer",transition:"all .15s"}} onMouseEnter={e=>{e.currentTarget.style.borderColor=C.blue;e.currentTarget.style.boxShadow="0 2px 8px rgba(0,115,234,.15)";}} onMouseLeave={e=>{e.currentTarget.style.borderColor=C.hlGrey;e.currentTarget.style.boxShadow="none";}}>
     <div style={{fontSize:20,marginBottom:6}}>{t.icon}</div><div style={{fontSize:14,fontWeight:700}}>{t.name}</div><div style={{fontSize:11,color:V.tMut,marginTop:4}}>{t.groups.length} groups</div>
   </div>))}</div></div>}
   {mode==="linked"&&<div>
     <div style={{marginBottom:12}}><label style={{fontSize:12,color:V.tSoft,fontWeight:600,display:"block",marginBottom:4}}>Board icon</label>
-      <div style={{position:"relative",display:"inline-block"}}><div onClick={()=>setIconOpen(!iconOpen)} style={{width:44,height:44,borderRadius:8,border:"2px solid "+(iconOpen?C.purple:"#e0e0e0"),..._fcc,fontSize:24,cursor:"pointer",background:iconOpen?"#f5f3ff":"#fafafa",transition:"all .15s"}}>{icon}</div>
+      <div style={{position:"relative",display:"inline-block"}}><div onClick={()=>setIconOpen(!iconOpen)} style={{width:44,height:44,borderRadius:8,border:"2px solid "+(iconOpen?C.purple:"#e0e0e0"),..._fcc,fontSize:24,cursor:"pointer",background:iconOpen?C.lgPurp:"#fafafa",transition:"all .15s"}}>{icon}</div>
         {iconOpen&&<div style={{position:"absolute",top:"100%",left:0,marginTop:6,background:V.card,border:B.bdr,borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,.15)",padding:10,display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,width:240,zIndex:10}}>
-          {BOARD_ICONS.map(ic=>(<div key={ic} onClick={()=>{setIcon(ic);setIconOpen(false);}} style={{width:34,height:34,borderRadius:6,..._fcc,fontSize:18,cursor:"pointer",background:icon===ic?"#f0eeff":"transparent",border:icon===ic?"2px solid #6c5ce7":"2px solid transparent"}} onMouseEnter={e=>e.currentTarget.style.background=V.rHov} onMouseLeave={e=>e.currentTarget.style.background=icon===ic?"#f0eeff":"transparent"}>{ic}</div>))}
+          {BOARD_ICONS.map(ic=>(<div key={ic} onClick={()=>{setIcon(ic);setIconOpen(false);}} style={{width:34,height:34,borderRadius:6,..._fcc,fontSize:18,cursor:"pointer",background:icon===ic?C.hlPurp:"transparent",border:icon===ic?"2px solid #6c5ce7":"2px solid transparent"}} onMouseEnter={e=>e.currentTarget.style.background=V.rHov} onMouseLeave={e=>e.currentTarget.style.background=icon===ic?C.hlPurp:"transparent"}>{ic}</div>))}
         </div>}</div></div>
     <div style={{marginBottom:12}}><label style={{fontSize:12,color:V.tSoft,fontWeight:600,display:"block",marginBottom:4}}>Board name</label><input autoFocus value={name} onChange={e=>setName(e.target.value)} placeholder="e.g. Sprint Board, Phase 2 Rollout" style={{width:"100%",padding:"8px 12px",border:B.bdr,borderRadius:6,fontSize:13,outline:"none",boxSizing:"border-box"}}/></div>
     <div style={{marginBottom:12}}><label style={{fontSize:12,color:V.tSoft,fontWeight:600,display:"block",marginBottom:4}}>Folder</label><select value={folder} onChange={e=>setFolder(e.target.value)} style={{width:"100%",padding:"7px 10px",border:B.bdr,borderRadius:6,fontSize:13}}>{boardCats.map(c=><option key={c}>{c}</option>)}</select></div>
@@ -1287,12 +1186,10 @@ const TemplateModal=memo(({onSelect,onClose,boards,mainBoards,boardCats})=>{
 </div></div>);});
 
 const SelectionBar=({count,groups,statuses,priorities,onDuplicate,onDelete,onMove,onSetStatus,onSetPriority,onDeselect})=>{
-  const [moveOpen,setMoveOpen]=useState(false);const [statusOpen,setStatusOpen]=useState(false);const [prioOpen,setPrioOpen]=useState(false);
-  const ref=useRef(null);
+  const [moveOpen,setMoveOpen]=useState(false);const [statusOpen,setStatusOpen]=useState(false);const [prioOpen,setPrioOpen]=useState(false);const ref=useRef(null);
   useOutsideClick(ref,()=>{setMoveOpen(false);setStatusOpen(false);setPrioOpen(false);});
   if(!count)return null;
-  const ic=(svg)=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{__html:svg}}/>;
-  const icons={
+  const ic=(svg)=><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{__html:svg}}/>;const icons={
     dup:ic('<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>'),
     move:ic('<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>'),
     status:ic('<circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/>'),
@@ -1301,7 +1198,7 @@ const SelectionBar=({count,groups,statuses,priorities,onDuplicate,onDelete,onMov
   const btn=(icon,label,onClick,danger)=>(<div onClick={onClick} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,cursor:"pointer",padding:"6px 14px",borderRadius:8,minWidth:56,transition:"background .15s"}} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.12)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>{typeof icon==="string"?<span dangerouslySetInnerHTML={{__html:icon}}/>:icon}<span style={{fontSize:11,color:danger?"#ff6b6b":"rgba(255,255,255,0.9)",whiteSpace:"nowrap",fontWeight:500}}>{label}</span></div>);
   const pop=(items,onSelect,onClose)=>(<div style={{position:"absolute",bottom:"100%",left:"50%",transform:"translateX(-50%)",marginBottom:8,background:V.card,borderRadius:10,boxShadow:"0 8px 32px rgba(0,0,0,.25)",minWidth:180,maxHeight:260,overflowY:"auto",zIndex:200001}} onClick={e=>e.stopPropagation()}>
     <div style={{padding:"8px 12px",borderBottom:B.bdrS,fontSize:11,color:V.tMut8,fontWeight:600}}>Select to apply to {count} item{count>1?"s":""}</div>
-    {items.map((it,i)=>(<div key={i} onClick={()=>{onSelect(it.value||it.label||it);onClose();}} style={{padding:"9px 14px",fontSize:13,cursor:"pointer",..._fc,gap:10,borderBottom:i<items.length-1?"1px solid #f8f8f8":"none"}} {...hov()}>
+    {items.map((it,i)=>(<div key={i} onClick={()=>{onSelect(it.value||it.label||it);onClose();}} style={{padding:"9px 14px",fontSize:13,cursor:"pointer",..._fc,gap:10,borderBottom:i<items.length-1?B.bdrS:"none"}} {...hov()}>
       {it.color&&<span style={{width:12,height:12,borderRadius:4,background:it.color,flexShrink:0}}/>}
       <span style={{fontWeight:500}}>{it.label||it}</span></div>))}</div>);
   return(<div ref={ref} style={{position:"fixed",bottom:24,left:"50%",transform:"translateX(-50%)",background:C.dark,borderRadius:14,padding:"10px 16px",..._fc,gap:2,boxShadow:"0 8px 40px rgba(0,0,0,.4)",zIndex:200000,animation:"barSlide .25s ease"}}>
@@ -1311,8 +1208,8 @@ const SelectionBar=({count,groups,statuses,priorities,onDuplicate,onDelete,onMov
       <span style={{fontSize:13,color:"#fff",fontWeight:600,whiteSpace:"nowrap"}}>{count===1?"Item":"Items"} selected</span></div>
     {btn(icons.dup,"Duplicate",onDuplicate)}
     <div style={{position:"relative"}}>{btn(icons.move,"Move to",()=>{setMoveOpen(!moveOpen);setStatusOpen(false);setPrioOpen(false);})}{moveOpen&&pop(groups.map(g=>({label:g.name,value:g.id,color:g.color})),v=>{onMove(v);setMoveOpen(false);},()=>setMoveOpen(false))}</div>
-    <div style={{position:"relative"}}>{btn(icons.status,"Status",()=>{setStatusOpen(!statusOpen);setMoveOpen(false);setPrioOpen(false);})}{statusOpen&&pop(statuses.map(s=>({label:s,color:SC[s]||"#c4c4c4"})),v=>{onSetStatus(v);setStatusOpen(false);},()=>setStatusOpen(false))}</div>
-    <div style={{position:"relative"}}>{btn(icons.prio,"Priority",()=>{setPrioOpen(!prioOpen);setMoveOpen(false);setStatusOpen(false);})}{prioOpen&&pop(priorities.map(p=>({label:p,color:PC[p]||"#c4c4c4"})),v=>{onSetPriority(v);setPrioOpen(false);},()=>setPrioOpen(false))}</div>
+    <div style={{position:"relative"}}>{btn(icons.status,"Status",()=>{setStatusOpen(!statusOpen);setMoveOpen(false);setPrioOpen(false);})}{statusOpen&&pop(statuses.map(s=>({label:s,color:SC[s]||C.grey})),v=>{onSetStatus(v);setStatusOpen(false);},()=>setStatusOpen(false))}</div>
+    <div style={{position:"relative"}}>{btn(icons.prio,"Priority",()=>{setPrioOpen(!prioOpen);setMoveOpen(false);setStatusOpen(false);})}{prioOpen&&pop(priorities.map(p=>({label:p,color:PC[p]||C.grey})),v=>{onSetPriority(v);setPrioOpen(false);},()=>setPrioOpen(false))}</div>
     {btn(icons.del,"Delete",onDelete,true)}
     <div style={{width:1,height:30,background:"rgba(255,255,255,0.15)",margin:"0 6px"}}/>
     <div onClick={onDeselect} style={{cursor:"pointer",padding:"6px 8px",borderRadius:8,..._fcc,transition:"background .15s"}} onMouseEnter={e=>e.currentTarget.style.background="rgba(255,255,255,0.12)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.7)" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
@@ -1320,14 +1217,10 @@ const SelectionBar=({count,groups,statuses,priorities,onDuplicate,onDelete,onMov
 
 /* ─── USER MENU PANEL ─── */
 const UserMenu=({currentUser,setCurrentUser,onOpenAdmin,onClose,teamMembers,onLogout,onReset})=>{
-  const ref=useRef();
-  const [editingName,setEditingName]=useState(false);const [nameVal,setNameVal]=useState(currentUser.name);
-  const [tab,setTab]=useState("profile");
+  const ref=useRef();const [editingName,setEditingName]=useState(false);const [nameVal,setNameVal]=useState(currentUser.name);const [tab,setTab]=useState("profile");
   useOutsideClick(ref,onClose);
   const saveName=()=>{if(nameVal.trim()){setCurrentUser(u=>({...u,name:nameVal.trim()}));setEditingName(false);}};
-  const ini=Initials(currentUser.name);
-  const isAdmin=currentUser.role==="Admin";
-  const onlineCount=teamMembers.filter(m=>m.online).length;
+  const ini=Initials(currentUser.name);const isAdmin=currentUser.role==="Admin";const onlineCount=teamMembers.filter(m=>m.online).length;
   const mi=(icon,label,sub,onClick,danger)=>(<div onClick={onClick} style={{padding:"8px 14px",cursor:"pointer",..._fc,gap:10,borderRadius:6,margin:"0 6px",transition:"background .12s"}} {...hov()}><span style={{fontSize:16,width:24,textAlign:"center"}}>{icon}</span><div style={{flex:1}}><div style={{fontSize:13,fontWeight:500,color:danger?C.red:"#333"}}>{label}</div>{sub&&<div style={{fontSize:11,color:V.tMut}}>{sub}</div>}</div></div>);
   return(<div ref={ref} style={{position:"absolute",top:"calc(100% + 8px)",right:0,background:V.card,borderRadius:12,boxShadow:"0 12px 48px rgba(0,0,0,.18)",border:B.bdr,width:300,zIndex:100020,overflow:"hidden"}}>
     <div style={{padding:"16px 18px 12px",background:"linear-gradient(135deg,#f8f7ff,#f0f8ff)",borderBottom:B.bdr}}>
@@ -1339,7 +1232,7 @@ const UserMenu=({currentUser,setCurrentUser,onOpenAdmin,onClose,teamMembers,onLo
           {editingName?<div style={{display:"flex",gap:4}}><input value={nameVal} onChange={e=>setNameVal(e.target.value)} onKeyDown={e=>{if(e.key==="Enter")saveName();if(e.key==="Escape"){setEditingName(false);setNameVal(currentUser.name);}}} style={{flex:1,border:"1px solid #6c5ce7",borderRadius:4,padding:"3px 8px",fontSize:13,outline:"none"}} autoFocus/><button onClick={saveName} style={{background:C.purple,border:"none",borderRadius:4,color:"#fff",fontSize:11,padding:"3px 8px",cursor:"pointer"}}>Save</button></div>
           :<div><div onClick={()=>setEditingName(true)} style={{fontSize:15,fontWeight:700,color:"#1a1a2e",cursor:"pointer"}} title="Click to edit name">{currentUser.name} <span style={{fontSize:10,color:V.tMut}}>✎</span></div>
             <div style={{fontSize:11,color:V.tMut8}}>{currentUser.email||"No email set"}</div></div>}
-          <span style={{display:"inline-block",marginTop:4,background:ROLE_COLORS[currentUser.role]||"#c4c4c4",color:"#fff",borderRadius:10,padding:"1px 8px",fontSize:10,fontWeight:700}}>{currentUser.role}</span></div></div></div>
+          <span style={{display:"inline-block",marginTop:4,background:ROLE_COLORS[currentUser.role]||C.grey,color:"#fff",borderRadius:10,padding:"1px 8px",fontSize:10,fontWeight:700}}>{currentUser.role}</span></div></div></div>
     <div style={{display:"flex",borderBottom:B.bdrS}}>
       {[["profile","Profile"],["appearance","Display"],["team","Team"]].map(([k,l])=>(<button key={k} onClick={()=>setTab(k)} style={{flex:1,padding:"8px 0",border:"none",background:"transparent",cursor:"pointer",fontSize:12,fontWeight:tab===k?700:400,color:tab===k?C.purple:"#888",borderBottom:tab===k?"2px solid #6c5ce7":"2px solid transparent"}}>{l}</button>))}
     </div>
@@ -1348,7 +1241,7 @@ const UserMenu=({currentUser,setCurrentUser,onOpenAdmin,onClose,teamMembers,onLo
         {mi("📧","Email",currentUser.email||"Not set",()=>{const e=prompt("Enter your email:",currentUser.email||"");if(e!==null)setCurrentUser(u=>({...u,email:e}));})}
         {mi("📍","Status","Set your status",()=>{const s=prompt("Set your status message:",currentUser.statusMsg||"");if(s!==null)setCurrentUser(u=>({...u,statusMsg:s}));})}
         {currentUser.statusMsg&&<div style={{margin:"0 20px 8px",padding:"6px 10px",background:V.rAlt,borderRadius:6,fontSize:12,color:V.tSoft}}>"{currentUser.statusMsg}"</div>}
-        <div style={{borderTop:"1px solid #f0f0f0",margin:"4px 0"}}/>
+        <div style={{borderTop:B.bdrS,margin:"4px 0"}}/>
         {mi("🎨","Avatar color","Choose your color",null)}
         <div style={{display:"flex",gap:6,padding:"4px 20px 10px",flexWrap:"wrap"}}>
           {AVATAR_COLORS.map(c=>(<div key={c} onClick={()=>setCurrentUser(u=>({...u,color:c}))} style={{width:24,height:24,borderRadius:"50%",background:c,cursor:"pointer",border:currentUser.color===c?"3px solid #333":"3px solid transparent",transition:"border .12s"}}/>))}</div></div>}
@@ -1367,16 +1260,14 @@ const UserMenu=({currentUser,setCurrentUser,onOpenAdmin,onClose,teamMembers,onLo
           <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,fontWeight:600,..._ell}}>{m.name}</div><div style={{fontSize:10,color:V.tMut}}>{m.online?"Online":m.lastSeen}</div></div>
           <span style={{fontSize:10,color:ROLE_COLORS[m.role],fontWeight:600}}>{m.role}</span></div>);})}
         {teamMembers.length>5&&<div style={{padding:"6px 14px",fontSize:11,color:C.purple,cursor:"pointer",fontWeight:600}} onClick={onOpenAdmin}>+{teamMembers.length-5} more — View all</div>}</div>}</div>
-    <div style={{borderTop:"1px solid #f0f0f0",padding:"6px 0"}}>
+    <div style={{borderTop:B.bdrS,padding:"6px 0"}}>
       {isAdmin&&mi("⚙️","Admin Settings","Manage team & permissions",onOpenAdmin)}
       {mi("🔄","Reset all data","Restore to default demo data",()=>{if(confirm("Reset ALL data? This will erase your boards, settings, and preferences.")){onReset();}},true)}
       {mi("🚪","Log out","Sign out of your account",()=>{if(confirm("Log out of Slate?")){onLogout();}},true)}</div></div>);};
 
 /* ─── ADMIN PANEL ─── */
 const AdminPanel=({teamMembers,setTeamMembers,currentUser,onClose})=>{
-  const [addOpen,setAddOpen]=useState(false);const [newName,setNewName]=useState("");const [newEmail,setNewEmail]=useState("");const [newRole,setNewRole]=useState("Member");
-  const [searchQ,setSearchQ]=useState("");const [confirmRemove,setConfirmRemove]=useState(null);
-  const isAdmin=currentUser.role==="Admin";
+  const [addOpen,setAddOpen]=useState(false);const [newName,setNewName]=useState("");const [newEmail,setNewEmail]=useState("");const [newRole,setNewRole]=useState("Member");const [searchQ,setSearchQ]=useState("");const [confirmRemove,setConfirmRemove]=useState(null);const isAdmin=currentUser.role==="Admin";
   const filtered=teamMembers.filter(m=>!searchQ||m.name.toLowerCase().includes(searchQ.toLowerCase())||m.email?.toLowerCase().includes(searchQ.toLowerCase()));
   const addMember=()=>{if(!newName.trim())return;const nm={id:uid(),name:newName.trim(),email:newEmail.trim(),role:newRole,color:AVATAR_COLORS[Math.floor(Math.random()*AVATAR_COLORS.length)],online:false,lastSeen:"Invited"};setTeamMembers(t=>[...t,nm]);setNewName("");setNewEmail("");setNewRole("Member");setAddOpen(false);};
   const removeMember=(id)=>{setTeamMembers(t=>t.filter(m=>m.id!==id));setConfirmRemove(null);};
@@ -1397,13 +1288,12 @@ const AdminPanel=({teamMembers,setTeamMembers,currentUser,onClose})=>{
         <input value={newEmail} onChange={e=>setNewEmail(e.target.value)} placeholder="Email (optional)" style={{flex:1,border:B.bdr,borderRadius:6,padding:"6px 10px",fontSize:13,outline:"none"}}/></div>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
         <span style={{fontSize:12,color:V.tMut8}}>Role:</span>
-        {ROLES.map(r=>(<button key={r} onClick={()=>setNewRole(r)} style={{padding:"4px 12px",borderRadius:20,border:newRole===r?"2px solid #6c5ce7":"1px solid #e0e0e0",background:newRole===r?"#f0eeff":"#fff",cursor:"pointer",fontSize:12,color:newRole===r?C.purple:"#666",fontWeight:newRole===r?700:400}}>{r}</button>))}
+        {ROLES.map(r=>(<button key={r} onClick={()=>setNewRole(r)} style={{padding:"4px 12px",borderRadius:20,border:newRole===r?"2px solid #6c5ce7":B.bdr,background:newRole===r?C.hlPurp:"#fff",cursor:"pointer",fontSize:12,color:newRole===r?C.purple:"#666",fontWeight:newRole===r?700:400}}>{r}</button>))}
         <div style={{flex:1}}/>
         <button onClick={addMember} disabled={!newName.trim()} style={{padding:"6px 16px",border:"none",borderRadius:6,background:newName.trim()?C.purple:"#e0e0e0",color:"#fff",cursor:newName.trim()?"pointer":"default",fontSize:13,fontWeight:700}}>Add</button></div></div>}
     <div style={{flex:1,overflowY:"auto",padding:"0"}}>
       {filtered.map(m=>{
-        const isSelf=m.id===currentUser.id;
-        const isRemoving=confirmRemove===m.id;
+        const isSelf=m.id===currentUser.id;const isRemoving=confirmRemove===m.id;
         return(<div key={m.id} style={{padding:"12px 16px",..._fc,gap:12,borderBottom:B.bdrS,background:isRemoving?"#fff5f5":"transparent"}}>
           <div style={{width:36,height:36,borderRadius:"50%",background:m.color||"#ccc",color:"#fff",..._fcc,fontSize:13,fontWeight:700,position:"relative",flexShrink:0}}>
             {Initials(m.name)}
@@ -1429,8 +1319,7 @@ const AdminPanel=({teamMembers,setTeamMembers,currentUser,onClose})=>{
     <div style={{padding:"12px 16px",borderTop:B.bdr,background:"#f8f9fb"}}>
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
         <div style={{fontSize:11,color:V.tMut8}}>
-          <span style={{fontWeight:600}}>{teamMembers.filter(m=>m.role==="Admin").length}</span> Admins · <span style={{fontWeight:600}}>{teamMembers.filter(m=>m.role==="Member").length}</span> Members · <span style={{fontWeight:600}}>{teamMembers.filter(m=>m.role==="Viewer").length}</span> Viewers
-        </div>
+          <span style={{fontWeight:600}}>{teamMembers.filter(m=>m.role==="Admin").length}</span> Admins · <span style={{fontWeight:600}}>{teamMembers.filter(m=>m.role==="Member").length}</span> Members · <span style={{fontWeight:600}}>{teamMembers.filter(m=>m.role==="Viewer").length}</span> Viewers</div>
         {isAdmin&&<div style={{fontSize:11,color:V.tMut8}}>Admins can add/remove members & change roles</div>}</div></div></div>);};
 
 /* ─── AUTH SYSTEM ─── */
@@ -1441,14 +1330,12 @@ const getAuth=()=>{try{const s=localStorage.getItem("slate_auth");return s?JSON.
 const saveAuth=(a)=>{try{if(a)localStorage.setItem("slate_auth",JSON.stringify(a));else localStorage.removeItem("slate_auth");}catch(e){}};
 
 /* ─── localStorage persistence ─── */
-const LS_KEY="slate_app_data";
-const LS_VER=3; /* bump to force reset on breaking schema changes */
+const LS_KEY="slate_app_data";const LS_VER=3; /* bump to force reset on breaking schema changes */
 const lsLoad=()=>{try{const raw=localStorage.getItem(LS_KEY);if(!raw)return null;const d=JSON.parse(raw);if(d._v!==LS_VER)return null;return d;}catch(e){return null;}};
 const lsSave=(data)=>{try{localStorage.setItem(LS_KEY,JSON.stringify({...data,_v:LS_VER,_t:Date.now()}));}catch(e){}};
 
 const AuthScreen=({onAuth})=>{
-  const [mode,setMode]=useState("signin");/* signin | signup | verify */const [email,setEmail]=useState("");const [password,setPassword]=useState("");const [confirmPw,setConfirmPw]=useState("");
-  const [name,setName]=useState("");const [error,setError]=useState("");const [loading,setLoading]=useState(false);const [verifyCode,setVerifyCode]=useState("");const [realCode,setRealCode]=useState("");const [pendingUser,setPendingUser]=useState(null);
+  const [mode,setMode]=useState("signin");/* signin | signup | verify */const [email,setEmail]=useState("");const [password,setPassword]=useState("");const [confirmPw,setConfirmPw]=useState("");const [name,setName]=useState("");const [error,setError]=useState("");const [loading,setLoading]=useState(false);const [verifyCode,setVerifyCode]=useState("");const [realCode,setRealCode]=useState("");const [pendingUser,setPendingUser]=useState(null);
 
   const doSignIn=()=>{
     setError("");
@@ -1456,8 +1343,7 @@ const AuthScreen=({onAuth})=>{
     if(email.trim().toLowerCase()===AUTH_ADMIN.email&&password===AUTH_ADMIN.password){
       const u={id:"u_admin",name:AUTH_ADMIN.name,email:"admin@slate.app",role:"Admin",color:C.purple,notifs:true,compact:false,darkMode:false,statusMsg:""};
       saveAuth(u);onAuth(u);return;}
-    const users=getUsers();
-    const found=users.find(u=>u.email.toLowerCase()===email.trim().toLowerCase());
+    const users=getUsers();const found=users.find(u=>u.email.toLowerCase()===email.trim().toLowerCase());
     if(!found){setError("No account found with this email.");return;}
     if(found.password!==password){setError("Incorrect password.");return;}
     if(!found.verified){setError("Please verify your email first. Check your inbox.");return;}
@@ -1479,9 +1365,7 @@ const AuthScreen=({onAuth})=>{
   const doVerify=()=>{
     setError("");
     if(verifyCode!==realCode){setError("Incorrect code. Please try again.");return;}
-    const verified={...pendingUser,verified:true};
-    const users=getUsers();users.push(verified);saveUsers(users);
-    const sess={...verified};delete sess.password;
+    const verified={...pendingUser,verified:true};const users=getUsers();users.push(verified);saveUsers(users);const sess={...verified};delete sess.password;
     saveAuth(sess);onAuth(sess);};
 
   const doSSO=(provider)=>{
@@ -1491,8 +1375,7 @@ const AuthScreen=({onAuth})=>{
   const inp=(val,set,placeholder,type="text")=>(<input value={val} onChange={e=>set(e.target.value)} placeholder={placeholder} type={type} onKeyDown={e=>{if(e.key==="Enter"){if(mode==="signin")doSignIn();else if(mode==="signup")doSignUp();else doVerify();}}} style={{width:"100%",padding:"12px 16px",border:B.bdr,borderRadius:8,fontSize:14,outline:"none",boxSizing:"border-box",marginBottom:10,transition:"border .15s"}} onFocus={e=>e.currentTarget.style.borderColor=C.purple} onBlur={e=>e.currentTarget.style.borderColor="#e0e0e0"}/>);
 
   const ssoBtn=(icon,label,provider,bg)=>(<button onClick={()=>doSSO(provider)} disabled={loading} style={{flex:1,padding:"10px 12px",border:B.bdr,borderRadius:8,background:bg||"#fff",cursor:"pointer",fontSize:13,fontWeight:600,..._fcc,gap:8,color:bg?"#fff":"#333",transition:"all .12s"}} onMouseEnter={e=>{e.currentTarget.style.boxShadow="0 2px 8px rgba(0,0,0,.1)";}} onMouseLeave={e=>{e.currentTarget.style.boxShadow="none";}}>{icon}{label}</button>);
-
-  return(<div style={{minHeight:"100vh",display:"flex",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
+  return(<div data-login-split style={{minHeight:"100vh",display:"flex",fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif"}}>
     <div style={{flex:"0 0 420px",background:"linear-gradient(135deg,#6c5ce7 0%,#0984e3 50%,#00b894 100%)",color:"#fff",display:"flex",flexDirection:"column",justifyContent:"center",padding:"60px 48px",position:"relative",overflow:"hidden"}}>
       <div style={{position:"absolute",top:-60,right:-60,width:200,height:200,borderRadius:"50%",background:"rgba(255,255,255,.06)"}}/>
       <div style={{position:"absolute",bottom:-40,left:-40,width:160,height:160,borderRadius:"50%",background:"rgba(255,255,255,.04)"}}/>
@@ -1503,12 +1386,10 @@ const AuthScreen=({onAuth})=>{
       <div style={{marginTop:32,fontSize:11,opacity:.4}}>v{APP_VERSION}</div></div>
     <div style={{flex:1,..._fcc,background:"linear-gradient(135deg,#f0eeff 0%,#e8f4fd 50%,#f0fffe 100%)",padding:"40px 20px"}}>
     <div style={{width:400}}>
-
       <div style={{padding:"24px 32px 32px"}}>
         {mode!=="verify"&&<div style={{display:"flex",marginBottom:20,background:V.rAlt,borderRadius:8,padding:3}}>
           {[["signin","Sign In"],["signup","Sign Up"]].map(([k,l])=>(<button key={k} onClick={()=>{setMode(k);setError("");}} style={{flex:1,padding:"8px 0",border:"none",borderRadius:6,background:mode===k?"#fff":"transparent",color:mode===k?C.purple:"#888",fontSize:13,fontWeight:mode===k?700:400,cursor:"pointer",boxShadow:mode===k?"0 1px 3px rgba(0,0,0,.08)":"none",transition:"all .15s"}}>{l}</button>))}
         </div>}
-
         {mode==="signin"&&<div>
           {inp(email,setEmail,"Email or username")}
           {inp(password,setPassword,"Password","password")}
@@ -1517,7 +1398,6 @@ const AuthScreen=({onAuth})=>{
           <div style={{display:"flex",gap:10}}>
             {ssoBtn(<svg width="16" height="16" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>,"Google","Google")}
             {ssoBtn(<svg width="16" height="16" viewBox="0 0 23 23"><path fill="#f35325" d="M1 1h10v10H1z"/><path fill="#81bc06" d="M12 1h10v10H12z"/><path fill="#05a6f0" d="M1 12h10v10H1z"/><path fill="#ffba08" d="M12 12h10v10H12z"/></svg>,"Microsoft","Microsoft")}</div></div>}
-
         {mode==="signup"&&<div>
           {inp(name,setName,"Full name")}
           {inp(email,setEmail,"Email address","email")}
@@ -1525,7 +1405,6 @@ const AuthScreen=({onAuth})=>{
           {inp(confirmPw,setConfirmPw,"Confirm password","password")}
           <button onClick={doSignUp} style={{width:"100%",padding:"12px",border:"none",borderRadius:8,background:"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10,transition:"opacity .15s"}} onMouseEnter={e=>e.currentTarget.style.opacity=.9} onMouseLeave={e=>e.currentTarget.style.opacity=1}>Create Account</button>
         </div>}
-
         {mode==="verify"&&<div style={{textAlign:"center"}}>
           <div style={{fontSize:40,marginBottom:12}}>📧</div>
           <div style={{fontSize:16,fontWeight:700,color:"#1a1a2e",marginBottom:6}}>Verify your email</div>
@@ -1537,10 +1416,8 @@ const AuthScreen=({onAuth})=>{
           {inp(verifyCode,setVerifyCode,"Enter 4-digit code")}
           <button onClick={doVerify} style={{width:"100%",padding:"12px",border:"none",borderRadius:8,background:"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10}}>Verify & Sign In</button>
           <button onClick={()=>{setMode("signup");setError("");}} style={{background:"none",border:"none",color:V.tMut8,cursor:"pointer",fontSize:12}}>← Back to Sign Up</button></div>}
-
-        {error&&<div style={{background:"#fff0f0",border:"1px solid #ffd0d0",borderRadius:8,padding:"10px 14px",marginTop:10,fontSize:13,color:C.red,..._fc,gap:8}}><span>⚠</span>{error}</div>}
+        {error&&<div style={{background:C.errBg,border:"1px solid #ffd0d0",borderRadius:8,padding:"10px 14px",marginTop:10,fontSize:13,color:C.red,..._fc,gap:8}}><span>⚠</span>{error}</div>}
         {loading&&<div style={{textAlign:"center",padding:16,color:C.purple,fontSize:13}}>Connecting...</div>}
-
         {mode==="signin"&&<div style={{textAlign:"center",marginTop:16,fontSize:12,color:V.tMut}}>
           <div style={{background:V.rAlt,borderRadius:8,padding:"10px 14px",border:B.bdr}}>
             <div style={{fontWeight:600,color:V.tSoft,marginBottom:4}}>Demo Admin Account</div>
@@ -1549,12 +1426,9 @@ const AuthScreen=({onAuth})=>{
 
 /* ─── SHARE / PERMISSIONS PANEL ─── */
 const WsSharePanel=({workspace,teamMembers,onUpdate,onClose})=>{
-  const [addEmail,setAddEmail]=useState("");const [addAccess,setAddAccess]=useState("write");
-  const shared=workspace?.shared||[];const owner=workspace?.owner||"u_admin";
-  const ownerMember=teamMembers.find(m=>m.id===owner);
+  const [addEmail,setAddEmail]=useState("");const [addAccess,setAddAccess]=useState("write");const shared=workspace?.shared||[];const owner=workspace?.owner||"u_admin";const ownerMember=teamMembers.find(m=>m.id===owner);
   const addShare=()=>{if(!addEmail.trim())return;const m=teamMembers.find(t=>t.name.toLowerCase().includes(addEmail.toLowerCase())||t.email?.toLowerCase().includes(addEmail.toLowerCase()));if(!m)return;if(shared.find(s=>s.userId===m.id))return;onUpdate([...shared,{userId:m.id,access:addAccess}]);setAddEmail("");};
-  const removeShare=(userId)=>onUpdate(shared.filter(s=>s.userId!==userId));
-  const changeAccess=(userId,access)=>onUpdate(shared.map(s=>s.userId!==userId?s:{...s,access}));
+  const removeShare=(userId)=>onUpdate(shared.filter(s=>s.userId!==userId));const changeAccess=(userId,access)=>onUpdate(shared.map(s=>s.userId!==userId?s:{...s,access}));
   return(<SidePanel title={"🏢 Workspace: "+workspace?.name} sub="Manage workspace access" onClose={onClose} width={420}>
     <div style={{padding:"16px 20px",borderBottom:B.bdrS}}>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -1584,12 +1458,9 @@ const WsSharePanel=({workspace,teamMembers,onUpdate,onClose})=>{
       <b>View only</b> — browse boards, cannot change anything</div></SidePanel>);};
 
 const SharePanel=({board,teamMembers,onUpdate,onClose})=>{
-  const [addEmail,setAddEmail]=useState("");const [addAccess,setAddAccess]=useState("write");
-  const shared=board?.shared||[];const owner=board?.owner||"u_admin";
-  const ownerMember=teamMembers.find(m=>m.id===owner);
+  const [addEmail,setAddEmail]=useState("");const [addAccess,setAddAccess]=useState("write");const shared=board?.shared||[];const owner=board?.owner||"u_admin";const ownerMember=teamMembers.find(m=>m.id===owner);
   const addShare=()=>{if(!addEmail.trim())return;const m=teamMembers.find(t=>t.name.toLowerCase().includes(addEmail.toLowerCase())||t.email?.toLowerCase().includes(addEmail.toLowerCase()));if(!m){return;}if(shared.find(s=>s.userId===m.id))return;onUpdate([...shared,{userId:m.id,access:addAccess}]);setAddEmail("");};
-  const removeShare=(userId)=>onUpdate(shared.filter(s=>s.userId!==userId));
-  const changeAccess=(userId,access)=>onUpdate(shared.map(s=>s.userId!==userId?s:{...s,access}));
+  const removeShare=(userId)=>onUpdate(shared.filter(s=>s.userId!==userId));const changeAccess=(userId,access)=>onUpdate(shared.map(s=>s.userId!==userId?s:{...s,access}));
   return(<SidePanel title={"🔗 Share: "+board?.name} sub="Manage who can access this board" onClose={onClose} width={420}>
     <div style={{padding:"16px 20px",borderBottom:B.bdrS}}>
       <div style={{display:"flex",gap:8,alignItems:"center"}}>
@@ -1618,10 +1489,7 @@ const SharePanel=({board,teamMembers,onUpdate,onClose})=>{
       <b>View only</b> — can view the board but cannot make changes</div></SidePanel>);};
 
 /* ─── PURE HELPERS (module-level = no recreation per render) ─── */
-const _mapGR=(b,gId,fn)=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:fn(g.rows)})});
-const _mapAllR=(b,fn)=>({...b,groups:b.groups.map(g=>({...g,rows:fn(g.rows)}))});
-const _NO_BULK=new Set(["task","checked","notes","updates","subitems","id","createdAt","lastComment"]);
-const _PORD={"Critical":0,"High":1,"Medium":2,"Low":3,"No Priority":4};
+const _mapGR=(b,gId,fn)=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,rows:fn(g.rows)})});const _mapAllR=(b,fn)=>({...b,groups:b.groups.map(g=>({...g,rows:fn(g.rows)}))});const _NO_BULK=new Set(["task","checked","notes","updates","subitems","id","createdAt","lastComment"]);const _PORD={"Critical":0,"High":1,"Medium":2,"Low":3,"No Priority":4};
 const rowTint=(row,dark)=>{const st=rv(row,"status");if(st==="Done")return dark?"#1a2e1a":"#f0fff4";if(st==="Stuck")return dark?"#2e1a1a":"#fff5f5";if(isOverdue(row))return dark?"#2e2a1a":"#fff8f0";return"transparent";};
 
 export default function App(){
@@ -1629,15 +1497,13 @@ export default function App(){
   const _migrate=(bs)=>bs.map(b=>{
     const bt=b.type||(b.isMain?BT.PORTFOLIO:b.isDashboard?BT.DASH:b.isSummary?BT.SUMMARY:BT.TASK);
     return{...b,type:bt,groups:(b.groups||[]).map(g=>({...g,rows:(g.rows||[]).map(r=>{if(r.values)return r;const vals={};DATA_FIELDS.forEach(k=>{if(r[k]!==undefined)vals[k]=r[k];});return{...r,values:vals};})}))};});
-  const [boards,setBoards]=useState(()=>_migrate(_saved?.boards||IBOARDS));const [activeId,setActiveId]=useState(()=>_saved?.activeId||"b_portfolio");
-  const undoRef=useRef([]);const redoRef=useRef([]);const UNDO_MAX=40;
+  const [boards,setBoards]=useState(()=>_migrate(_saved?.boards||IBOARDS));const [activeId,setActiveId]=useState(()=>_saved?.activeId||"b_portfolio");const undoRef=useRef([]);const redoRef=useRef([]);const UNDO_MAX=40;
   const snap=useCallback((desc)=>{setBoards(cur=>{undoRef.current=[...undoRef.current.slice(-(UNDO_MAX-1)),{boards:cur,desc:desc||""}];redoRef.current=[];return cur;});},[]);
   const undo=useCallback(()=>{if(!undoRef.current.length)return;const prev=undoRef.current[undoRef.current.length-1];undoRef.current=undoRef.current.slice(0,-1);setBoards(cur=>{redoRef.current=[...redoRef.current,{boards:cur,desc:"redo"}];return prev.boards||prev;});setToast("↩ Undone"+(prev.desc?" — "+prev.desc:"")+(undoRef.current.length?" ("+undoRef.current.length+" left)":""));},[]);
   const redo=useCallback(()=>{if(!redoRef.current.length)return;const next=redoRef.current[redoRef.current.length-1];redoRef.current=redoRef.current.slice(0,-1);setBoards(cur=>{undoRef.current=[...undoRef.current,{boards:cur,desc:"undo"}];return next.boards||next;});setToast("↪ Redone"+(redoRef.current.length?" ("+redoRef.current.length+" left)":""));},[]);
   const kbRef=useRef({});
   useEffect(()=>{const h=e=>{
-    const mod=e.ctrlKey||e.metaKey;const tag=e.target?.tagName;const isInput=tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT";
-    const kb=kbRef.current;
+    const mod=e.ctrlKey||e.metaKey;const tag=e.target?.tagName;const isInput=tag==="INPUT"||tag==="TEXTAREA"||tag==="SELECT";const kb=kbRef.current;
     if(mod&&e.key==="z"&&!e.shiftKey){e.preventDefault();undo();return;}
     if((mod&&e.key==="y")||(mod&&e.key==="z"&&e.shiftKey)){e.preventDefault();redo();return;}
     if(mod&&e.key==="d"&&kb.selCount>0){e.preventDefault();kb.bulkDuplicate?.();return;}
@@ -1650,15 +1516,13 @@ export default function App(){
     if(e.key==="Tab"&&isInput&&e.target.closest('[data-row-id]')){
       e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const idx=cells.indexOf(e.target);const next=e.shiftKey?idx-1:idx+1;if(next>=0&&next<cells.length){cells[next].focus();cells[next].select?.();}}
     if((e.key==="ArrowLeft"||e.key==="ArrowRight")&&isInput&&e.target.closest('[data-row-id]')&&!e.target.value){
-      e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const idx=cells.indexOf(e.target);const next=e.key==="ArrowRight"?idx+1:idx-1;if(next>=0&&next<cells.length){cells[next].focus();cells[next].select?.();}
-    }
+      e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const idx=cells.indexOf(e.target);const next=e.key==="ArrowRight"?idx+1:idx-1;if(next>=0&&next<cells.length){cells[next].focus();cells[next].select?.();}}
     if((e.key==="ArrowUp"||e.key==="ArrowDown")&&isInput&&e.target.closest('[data-row-id]')){
       e.preventDefault();const row=e.target.closest('[data-row-id]');const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const colIdx=cells.indexOf(e.target);const allRows=[...document.querySelectorAll('[data-row-id]')];const rowIdx=allRows.indexOf(row);const targetRow=allRows[e.key==="ArrowDown"?rowIdx+1:rowIdx-1];if(targetRow){const targetCells=[...targetRow.querySelectorAll('input:not([type="checkbox"]),select,textarea')];if(targetCells[colIdx]){targetCells[colIdx].focus();targetCells[colIdx].select?.();}}
     }
   };document.addEventListener("keydown",h);return()=>document.removeEventListener("keydown",h);},[undo,redo]);
   const [workspaces,setWorkspaces]=useState(()=>_saved?.workspaces||INIT_WS);const [activeWs,setActiveWs]=useState(()=>_saved?.activeWs||"ws_it");const [wsPickerOpen,setWsPickerOpen]=useState(false);const [catCol,setCatCol]=useState(()=>_saved?.catCol||{"ACTIVE":false,"IN PROGRESS":false,"COMPLETED":true,"STALLED":true,"ON HOLD":true});
-  const [boardCats,setBoardCats]=useState(()=>_saved?.boardCats||DEF_CATS);const [newFolderOpen,setNewFolderOpen]=useState(false);const [newFolderName,setNewFolderName]=useState("");
-  const [rnFolder,setRnFolder]=useState(null);const [rnFolderVal,setRnFolderVal]=useState("");
+  const [boardCats,setBoardCats]=useState(()=>_saved?.boardCats||DEF_CATS);const [newFolderOpen,setNewFolderOpen]=useState(false);const [newFolderName,setNewFolderName]=useState("");const [rnFolder,setRnFolder]=useState(null);const [rnFolderVal,setRnFolderVal]=useState("");
   const addFolder=(name)=>{if(!name.trim()||boardCats.includes(name.trim().toUpperCase()))return;const n=name.trim().toUpperCase();setBoardCats(c=>[...c,n]);setCatCol(cc=>({...cc,[n]:false}));setNewFolderOpen(false);setNewFolderName("");};
   const renameFolder=(oldName,newName)=>{if(!newName.trim()||boardCats.includes(newName.trim().toUpperCase()))return;const n=newName.trim().toUpperCase();setBoardCats(c=>c.map(x=>x===oldName?n:x));setCatCol(cc=>{const ncc={...cc};ncc[n]=ncc[oldName];delete ncc[oldName];return ncc;});setBoards(bs=>bs.map(b=>b.cat===oldName?{...b,cat:n}:b));};
   const deleteFolder=(name)=>{if(boardCats.length<=1){setToast("⚠ Can't delete the last folder");return;}
@@ -1667,18 +1531,15 @@ export default function App(){
     setBoards(bs=>bs.map(b=>b.cat===name?{...b,cat:target}:b));
     setCatCol(cc=>{const ncc={...cc};delete ncc[name];return ncc;});
     setToast("🗑 Deleted folder \""+name+"\" — boards moved to "+target);};
-  const [people,setPeople]=useState(()=>_saved?.people||PEOPLE);const [statuses,setStatuses]=useState(()=>_saved?.statuses||STATS);const [priorities,setPriorities]=useState(()=>_saved?.priorities||PRIS);const [allTags,setAllTags]=useState(()=>_saved?.allTags||TAGS);
-  const [autos,setAutos]=useState(()=>{if(_saved?.autos)return _saved.autos;const a={};IBOARDS.forEach(b=>{a[b.id]=[...DEF_AUTOS];});return a;});const [autoPanel,setAutoPanel]=useState(false);
+  const [people,setPeople]=useState(()=>_saved?.people||PEOPLE);const [statuses,setStatuses]=useState(()=>_saved?.statuses||STATS);const [priorities,setPriorities]=useState(()=>_saved?.priorities||PRIS);const [allTags,setAllTags]=useState(()=>_saved?.allTags||TAGS);const [autos,setAutos]=useState(()=>{if(_saved?.autos)return _saved.autos;const a={};IBOARDS.forEach(b=>{a[b.id]=[...DEF_AUTOS];});return a;});const [autoPanel,setAutoPanel]=useState(false);
   const [activeView,setActiveView]=useState(()=>_saved?.activeView||"Main table");const [dragRow,setDragRow]=useState(null);const [dragGroup,setDragGroup]=useState(null);const [dragBoardId,setDragBoardId]=useState(null);const [dragOverCat,setDragOverCat]=useState(null);
-  const [sideCol,setSideCol]=useState(false);const [sidebarW,setSidebarW]=useState(()=>_saved?.sidebarW||260);const [rnBoard,setRnBoard]=useState(null);const [rnVal,setRnVal]=useState("");const [editBN,setEditBN]=useState(null);const [favorites,setFavorites]=useState(()=>_saved?.favorites||[]);
+  const [sideCol,setSideCol]=useState(false);const [sidebarW,setSidebarW]=useState(()=>_saved?.sidebarW||260);const [rnBoard,setRnBoard]=useState(null);const [rnVal,setRnVal]=useState("");const [editBN,setEditBN]=useState(null);const [favorites,setFavorites]=useState(()=>_saved?.favorites||[]);const [mobileOpen,setMobileOpen]=useState(false);
+  const isMobile=typeof window!=="undefined"&&window.innerWidth<=768;
   const toggleFav=useCallback((bId)=>setFavorites(f=>f.includes(bId)?f.filter(x=>x!==bId):[...f,bId]),[]);
-  const [sideSearch,setSideSearch]=useState("");const [favCollapsed,setFavCollapsed]=useState(false);
-  const [editDesc,setEditDesc]=useState(false);const [descVal,setDescVal]=useState("");const [search,setSearch]=useState("");const [searchOpen,setSearchOpen]=useState(false);
+  const [sideSearch,setSideSearch]=useState("");const [favCollapsed,setFavCollapsed]=useState(false);const [editDesc,setEditDesc]=useState(false);const [descVal,setDescVal]=useState("");const [search,setSearch]=useState("");const [searchOpen,setSearchOpen]=useState(false);
   const [historyOpen,setHistoryOpen]=useState(false);const [histFilter,setHistFilter]=useState("all");const [updPanel,setUpdPanel]=useState(null);const [detailPanel,setDetailPanel]=useState(null);const [sortSt,setSortSt]=useState({});const [hovGroup,setHovGroup]=useState(null);
-  const [addingWs,setAddingWs]=useState(false);const [newWs,setNewWs]=useState("");const [filterOpen,setFilterOpen]=useState(false);const [filters,setFilters]=useState({status:[],owner:[],priority:[],tags:[]});const [globalSortBy,setGlobalSortBy]=useState("Default");const [hiddenCols,setHiddenCols]=useState(()=>_saved?.hiddenCols||[]);
-  const [quickFilter,setQuickFilter]=useState(null);const [expandedSub,setExpandedSub]=useState({});const [ctxMenu,setCtxMenu]=useState(null);
-  const [notifsOpen,setNotifsOpen]=useState(false);const [notifs,setNotifs]=useState(NOTIFS);const [activityOpen,setActivityOpen]=useState(false);const [templateModal,setTemplateModal]=useState(false);const [toast,setToast]=useState(null);const [confirmDel,setConfirmDel]=useState(null);
-  const [shortcutsOpen,setShortcutsOpen]=useState(false);const [globalSearchOpen,setGlobalSearchOpen]=useState(false);const [globalSearchQ,setGlobalSearchQ]=useState("");
+  const [addingWs,setAddingWs]=useState(false);const [newWs,setNewWs]=useState("");const [filterOpen,setFilterOpen]=useState(false);const [filters,setFilters]=useState({status:[],owner:[],priority:[],tags:[]});const [globalSortBy,setGlobalSortBy]=useState("Default");const [hiddenCols,setHiddenCols]=useState(()=>_saved?.hiddenCols||[]);const [quickFilter,setQuickFilter]=useState(null);const [expandedSub,setExpandedSub]=useState({});const [ctxMenu,setCtxMenu]=useState(null);
+  const [notifsOpen,setNotifsOpen]=useState(false);const [notifs,setNotifs]=useState(NOTIFS);const [activityOpen,setActivityOpen]=useState(false);const [templateModal,setTemplateModal]=useState(false);const [toast,setToast]=useState(null);const [confirmDel,setConfirmDel]=useState(null);const [shortcutsOpen,setShortcutsOpen]=useState(false);const [globalSearchOpen,setGlobalSearchOpen]=useState(false);const [globalSearchQ,setGlobalSearchQ]=useState("");
   const [itemTemplates,setItemTemplates]=useState(()=>_saved?.itemTemplates||[
     {id:"tpl_standup",name:"Weekly Standup",config:{task:"Weekly Standup",status:"Not Started",priority:"Medium",tags:["Review"]}},
     {id:"tpl_bug",name:"Bug Report",config:{task:"Bug — ",status:"Not Started",priority:"High",tags:["Bug"]}},
@@ -1686,30 +1547,19 @@ export default function App(){
   const [tplMenuOpen,setTplMenuOpen]=useState(false);const [viewDropOpen,setViewDropOpen]=useState(false);const [savedFilters,setSavedFilters]=useState(()=>_saved?.savedFilters||[
     {id:"sf_1",name:"My overdue items",quickFilter:"overdue",filters:{status:[],owner:[],priority:[],tags:[]}},
     {id:"sf_2",name:"High priority stuck",quickFilter:"stuck",filters:{status:[],owner:[],priority:["High","Critical"],tags:[]}},]);
-  const [saveFilterOpen,setSaveFilterOpen]=useState(false);const [newFilterName,setNewFilterName]=useState("");
-  const [resizing,setResizing]=useState(null);const [colCtx,setColCtx]=useState(null);const [syncModal,setSyncModal]=useState(false);const [dragOverBoardId,setDragOverBoardId]=useState(null);const [rnColId,setRnColId]=useState(null);const [rnColVal,setRnColVal]=useState("");const [headerIconOpen,setHeaderIconOpen]=useState(false);
-  const [pinnedCols,setPinnedCols]=useState(()=>_saved?.pinnedCols||["task"]);
-  const togglePin=(colId)=>setPinnedCols(p=>p.includes(colId)?p.filter(x=>x!==colId):[...p,colId]);
-  const [dragCol,setDragCol]=useState(null);const [dragOverCol,setDragOverCol]=useState(null);const [ioMenuOpen,setIoMenuOpen]=useState(false);const ioRef=useRef(null);const importRef=useRef(null);const contentRef=useRef(null);
+  const [saveFilterOpen,setSaveFilterOpen]=useState(false);const [newFilterName,setNewFilterName]=useState("");const [resizing,setResizing]=useState(null);const [colCtx,setColCtx]=useState(null);const [syncModal,setSyncModal]=useState(false);const [dragOverBoardId,setDragOverBoardId]=useState(null);const [rnColId,setRnColId]=useState(null);const [rnColVal,setRnColVal]=useState("");const [headerIconOpen,setHeaderIconOpen]=useState(false);
+  const [pinnedCols,setPinnedCols]=useState(()=>_saved?.pinnedCols||["task"]);const togglePin=(colId)=>setPinnedCols(p=>p.includes(colId)?p.filter(x=>x!==colId):[...p,colId]);const [dragCol,setDragCol]=useState(null);const [dragOverCol,setDragOverCol]=useState(null);const [ioMenuOpen,setIoMenuOpen]=useState(false);const ioRef=useRef(null);const importRef=useRef(null);const contentRef=useRef(null);
   useEffect(()=>{const h=(e)=>{
-    const el=e.target;if(!el||!el.closest?.('[data-row-id]'))return;
-    const text=e.clipboardData?.getData('text');if(!text||!text.includes('\n'))return;
+    const el=e.target;if(!el||!el.closest?.('[data-row-id]'))return;const text=e.clipboardData?.getData('text');if(!text||!text.includes('\n'))return;
     e.preventDefault();
-    const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);
-    const row=el.closest('[data-row-id]');const allRows=[...document.querySelectorAll('[data-row-id]')];
-    const rowIdx=allRows.indexOf(row);
-    const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];
-    const colIdx=cells.indexOf(el);
+    const lines=text.split('\n').map(l=>l.trim()).filter(Boolean);const row=el.closest('[data-row-id]');const allRows=[...document.querySelectorAll('[data-row-id]')];const rowIdx=allRows.indexOf(row);const cells=[...row.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const colIdx=cells.indexOf(el);
     lines.forEach((line,i)=>{
-      const targetRow=allRows[rowIdx+i];if(!targetRow)return;
-      const targetCells=[...targetRow.querySelectorAll('input:not([type="checkbox"]),select,textarea')];
-      const targetCell=targetCells[colIdx];if(!targetCell)return;
-      const nativeSet=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value')?.set;
+      const targetRow=allRows[rowIdx+i];if(!targetRow)return;const targetCells=[...targetRow.querySelectorAll('input:not([type="checkbox"]),select,textarea')];const targetCell=targetCells[colIdx];if(!targetCell)return;const nativeSet=Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype,'value')?.set;
       if(nativeSet){nativeSet.call(targetCell,line);targetCell.dispatchEvent(new Event('input',{bubbles:true}));targetCell.dispatchEvent(new Event('change',{bubbles:true}));}});
     setToast("📋 Pasted "+lines.length+" values downward");
   };document.addEventListener('paste',h);return()=>document.removeEventListener('paste',h);},[]);
   /* ─── User identity & admin ─── */
-  const [authedUser,setAuthedUser]=useState(()=>getAuth());const [currentUser,setCurrentUser]=useState(()=>{const a=getAuth();return a||{id:"u_guest",name:"Guest",email:"",role:"Viewer",color:"#c4c4c4",notifs:true,compact:false,darkMode:false,statusMsg:""};});
+  const [authedUser,setAuthedUser]=useState(()=>getAuth());const [currentUser,setCurrentUser]=useState(()=>{const a=getAuth();return a||{id:"u_guest",name:"Guest",email:"",role:"Viewer",color:C.grey,notifs:true,compact:false,darkMode:false,statusMsg:""};});
   useEffect(()=>{if(authedUser){setCurrentUser(prev=>{const merged={...prev,...authedUser};try{localStorage.setItem("slate_user",JSON.stringify(merged));}catch(e){}return merged;});}},[authedUser]);
   useEffect(()=>{try{localStorage.setItem("slate_user",JSON.stringify(currentUser));}catch(e){}},[currentUser]);
   const onAuth=(u)=>{setAuthedUser(u);setCurrentUser(u);};
@@ -1726,15 +1576,11 @@ export default function App(){
     },800);
     return()=>{if(saveTimer.current)clearTimeout(saveTimer.current);};
   },[boards,activeId,workspaces,activeWs,catCol,boardCats,people,statuses,priorities,allTags,autos,activeView,favorites,hiddenCols,itemTemplates,savedFilters,teamMembers,sidebarW,pinnedCols]);
-  const [userMenuOpen,setUserMenuOpen]=useState(false);const [adminOpen,setAdminOpen]=useState(false);
-  const [sharePanel,setSharePanel]=useState(false);const [wsSharePanel,setWsSharePanel]=useState(false);
-  const userMenuRef=useRef(null);
+  const [userMenuOpen,setUserMenuOpen]=useState(false);const [adminOpen,setAdminOpen]=useState(false);const [sharePanel,setSharePanel]=useState(false);const [wsSharePanel,setWsSharePanel]=useState(false);const userMenuRef=useRef(null);
   useEffect(()=>setHeaderIconOpen(false),[activeId]);
   useEffect(()=>{
     if(!board||isDash(board)||isSummaryB(board))return;
-    const all=board.groups.flatMap(g=>g.rows);const td2=today();
-    const overdue=all.filter(r=>rv(r,"status")!=="Done"&&rv(r,"tlEnd")&&rv(r,"tlEnd")<td2);
-    const dueToday=all.filter(r=>rv(r,"status")!=="Done"&&rv(r,"tlEnd")&&rv(r,"tlEnd")===td2);
+    const all=board.groups.flatMap(g=>g.rows);const td2=today();const overdue=all.filter(r=>rv(r,"status")!=="Done"&&rv(r,"tlEnd")&&rv(r,"tlEnd")<td2);const dueToday=all.filter(r=>rv(r,"status")!=="Done"&&rv(r,"tlEnd")&&rv(r,"tlEnd")===td2);
     if(overdue.length>0){
       setTimeout(()=>setToast("⚠ "+overdue.length+" overdue item"+(overdue.length>1?"s":"")+" on this board"),300);
       setNotifs(prev=>[{id:uid(),text:"⚠ "+overdue.length+" overdue item"+(overdue.length>1?"s":"")+" on "+board.name,type:"warning",time:ts(),read:false},...prev]);}
@@ -1744,9 +1590,7 @@ export default function App(){
   },[activeId]);
   useOutsideClick(ioRef,()=>setIoMenuOpen(false));
 
-  const bi=boards.findIndex(b=>b.id===activeId);const board=boards[bi];const cols=board?.columns||DCOLS;
-  const bStatuses=board?.customStatuses||statuses;
-  const bPriorities=board?.customPriorities||priorities;
+  const bi=boards.findIndex(b=>b.id===activeId);const board=boards[bi];const cols=board?.columns||DCOLS;const bStatuses=board?.customStatuses||statuses;const bPriorities=board?.customPriorities||priorities;
   const setBoardStatuses=(newS)=>{snap();setBoards(bs=>bs.map(b=>b.id!==activeId?b:{...b,customStatuses:newS}));};
   const setBoardPriorities=(newP)=>{snap();setBoards(bs=>bs.map(b=>b.id!==activeId?b:{...b,customPriorities:newP}));};
   const wsBoards=useMemo(()=>boards.filter(b=>b.wsId===activeWs),[boards,activeWs]);
@@ -1801,12 +1645,10 @@ export default function App(){
   },[autos,activeId,bi,currentUser]);
 
   /* ─── Date-based automations — run every 60s (uses ref to avoid infinite loop) ─── */
-  const boardsRef=useRef(boards);boardsRef.current=boards;
-  const biRef=useRef(bi);biRef.current=bi;
+  const boardsRef=useRef(boards);boardsRef.current=boards;const biRef=useRef(bi);biRef.current=bi;
   useEffect(()=>{
     const run=()=>{
-      const ba=autos[activeId]||[];if(!ba.some(a=>a.enabled&&(a.trigger==="date_passed"||a.trigger==="deadline_reminder"||a.trigger==="recurring_weekly")))return;
-      const curBi=biRef.current;const b=boardsRef.current[curBi];if(!b||isPortfolio(b)||isDash(b)||isSummaryB(b))return;
+      const ba=autos[activeId]||[];if(!ba.some(a=>a.enabled&&(a.trigger==="date_passed"||a.trigger==="deadline_reminder"||a.trigger==="recurring_weekly")))return;const curBi=biRef.current;const b=boardsRef.current[curBi];if(!b||isPortfolio(b)||isDash(b)||isSummaryB(b))return;
       let changed=false;const td=today();
       const nb={...b,groups:b.groups.map(g=>({...g,rows:g.rows.map(r=>{
         const upd={};
@@ -1825,12 +1667,8 @@ export default function App(){
 
   const _TRACK_FIELDS=new Set(["status","priority","owner","tlStart","tlEnd","tags","completionDate","completionStatus","dependentOn"]);
   const upRow=(gId,rId,f,v)=>{if(boardReadonly&&f!=="checked")return;const grp=board.groups.find(g=>g.id===gId);const row=grp?.rows.find(r=>r.id===rId);
-    const applyBulk=row?.checked&&selCount>1&&!_NO_BULK.has(f);
-    const sel=applyBulk?new Set(selectedRows.map(s=>s.rId)):null;
-    const needsSync=f==="status"||f==="weeklyUpdate"||f==="weeklyStatus";
-    const quiet=f==="checked";
-    const actEntry=(!quiet&&_TRACK_FIELDS.has(f)&&row)?{id:uid(),field:f,from:String(Array.isArray(row[f])?row[f].join(","):(row[f]||"-")),to:String(Array.isArray(v)?v.join(","):(v||"-")),by:currentUser.name,time:ts()}:null;
-    const _desc=quiet?"":((row?.task||"")+" — "+f+": "+(v||"").toString().slice(0,30));
+    const applyBulk=row?.checked&&selCount>1&&!_NO_BULK.has(f);const sel=applyBulk?new Set(selectedRows.map(s=>s.rId)):null;const needsSync=f==="status"||f==="weeklyUpdate"||f==="weeklyStatus";const quiet=f==="checked";
+    const actEntry=(!quiet&&_TRACK_FIELDS.has(f)&&row)?{id:uid(),field:f,from:String(Array.isArray(row[f])?row[f].join(","):(row[f]||"-")),to:String(Array.isArray(v)?v.join(","):(v||"-")),by:currentUser.name,time:ts()}:null;const _desc=quiet?"":((row?.task||"")+" — "+f+": "+(v||"").toString().slice(0,30));
     const _upd=(r,field,val,extra={})=>{const n={...r,[field]:val,...extra};if(r.values&&DATA_FIELDS.includes(field))n.values={...r.values,[field]:val};return n;};
     updActive(b=>applyBulk
       ?_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?_upd(r,f,v,actEntry?{activity:[...(r.activity||[]),actEntry]}:{}):r))
@@ -1856,17 +1694,13 @@ export default function App(){
   const bulkSetStatus=(status)=>{const sel=new Set(selectedRows.map(s=>s.rId));const autoComplete=(autos[activeId]||[]).some(a=>a.enabled&&a.trigger==="status_done");updActive(b=>_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,status,checked:false,...(status==="Done"&&autoComplete?{completionDate:today(),completionStatus:"Done On Time"}:{})}:r)),true);log("Bulk Status",selCount+" items → "+status,C.green);};
   const bulkSetPriority=(priority)=>{const sel=new Set(selectedRows.map(s=>s.rId));setB(bi,b=>_mapAllR(b,rs=>rs.map(r=>sel.has(r.id)?{...r,priority,checked:false}:r)));log("Bulk Priority",selCount+" items → "+priority,C.orange);};
   const addGroup=()=>{setB(bi,b=>({...b,groups:[...b.groups,{id:uid(),name:"New Group",color:CL[b.groups.length%CL.length],collapsed:false,rows:[]}]}));};
-  const togGroup=gId=>setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,collapsed:!g.collapsed})}),true);
-  const rnGroup=(gId,n)=>setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,name:n})}));
-  const delGroup=gId=>setB(bi,b=>({...b,groups:b.groups.filter(g=>g.id!==gId)}));
+  const togGroup=gId=>setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,collapsed:!g.collapsed})}),true);const rnGroup=(gId,n)=>setB(bi,b=>({...b,groups:b.groups.map(g=>g.id!==gId?g:{...g,name:n})}));const delGroup=gId=>setB(bi,b=>({...b,groups:b.groups.filter(g=>g.id!==gId)}));
   const dupGroup=(gId)=>{const grp=board?.groups.find(g=>g.id===gId);if(!grp)return;snap("Duplicate group: "+grp.name);const ng={...structuredClone(grp),id:uid(),name:grp.name+" (copy)"};ng.rows.forEach(r=>{r.id=uid();rvArr(r,"subitems").forEach(s=>{s.id=uid();});});setB(bi,b=>({...b,groups:[...b.groups,ng]}));setToast("⧉ Duplicated group: "+grp.name);};
   const moveGroupToBoard=(gId,targetBoardId)=>{const grp=board?.groups.find(g=>g.id===gId);if(!grp)return;snap("Move group to another board");const ng=structuredClone(grp);ng.id=uid();ng.rows.forEach(r=>{r.id=uid();rvArr(r,"subitems").forEach(s=>{s.id=uid();});});setBoards(bs=>bs.map(b=>{if(b.id===activeId)return{...b,groups:b.groups.filter(g=>g.id!==gId)};if(b.id===targetBoardId)return{...b,groups:[...b.groups,ng]};return b;}));setToast("→ Moved \""+grp.name+"\" to "+boards.find(b=>b.id===targetBoardId)?.name);};
   const setCols=fn=>setB(bi,b=>({...b,columns:fn(b.columns)}));
   const reorderCol=(fromId,toId)=>{if(fromId===toId)return;setCols(c=>{const n=[...c];const fi=n.findIndex(x=>x.id===fromId);if(fi<0)return c;const[moved]=n.splice(fi,1);const ti=n.findIndex(x=>x.id===toId);if(ti<0){n.push(moved);}else{n.splice(ti,0,moved);}return n;});};
   const addColAfter=(aid,type,label)=>{const id=uid();setCols(c=>{const n=[...c];const newCol={id,name:label,type,w:type==="timeline"?180:120};if(type==="dropdown")newCol.labels=["Option 1","Option 2","Option 3"];if(aid==="__START__"){n.splice(0,0,newCol);}else if(aid){const i=n.findIndex(x=>x.id===aid);n.splice(i+1,0,newCol);}else n.push(newCol);return n;});};
-  const delCol=cid=>setCols(c=>c.filter(x=>x.id!==cid));
-  const rnCol=(cid,newName)=>setCols(c=>c.map(x=>x.id!==cid?x:{...x,name:newName}));
-  const hideCol=colName=>setHiddenCols(h=>h.includes(colName)?h:[...h,colName]);
+  const delCol=cid=>setCols(c=>c.filter(x=>x.id!==cid));const rnCol=(cid,newName)=>setCols(c=>c.map(x=>x.id!==cid?x:{...x,name:newName}));const hideCol=colName=>setHiddenCols(h=>h.includes(colName)?h:[...h,colName]);
   const addSyncTarget=(targetBoardId)=>{
     snap();setBoards(bs=>{let n=[...bs];const i=n.findIndex(b=>b.id===activeId);if(i<0)return bs;
       const existing=n[i].syncTargets||[];if(existing.some(s=>s.boardId===targetBoardId))return bs;
@@ -1900,8 +1734,7 @@ export default function App(){
   const saveCurrentFilter=()=>{if(!newFilterName.trim())return;const sf={id:uid(),name:newFilterName.trim(),quickFilter,filters:{...filters}};setSavedFilters(p=>[...p,sf]);setNewFilterName("");setSaveFilterOpen(false);setToast("💾 Saved filter: "+sf.name);};
   const delSavedFilter=(id)=>setSavedFilters(p=>p.filter(f=>f.id!==id));
   const addSubitem=(gId,rId)=>{setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,subitems:[...rvArr(r,"subitems"),mkSub()]})));setExpandedSub(s=>({...s,[rId]:true}));};
-  const upSubitem=(gId,rId,siId,f,v)=>setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,subitems:(r.subitems||[]).map(si=>si.id!==siId?si:{...si,[f]:v})})));
-  const delSubitem=(gId,rId,siId)=>setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,subitems:(r.subitems||[]).filter(si=>si.id!==siId)})));
+  const upSubitem=(gId,rId,siId,f,v)=>setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,subitems:(r.subitems||[]).map(si=>si.id!==siId?si:{...si,[f]:v})})));const delSubitem=(gId,rId,siId)=>setB(bi,b=>_mapGR(b,gId,rs=>rs.map(r=>r.id!==rId?r:{...r,subitems:(r.subitems||[]).filter(si=>si.id!==siId)})));
   const saveBN=(id,n)=>{snap("Rename board");setBoards(bs=>bs.map(b=>b.id===id?{...b,name:n||b.name}:b));};
   const saveDesc=(id,d)=>{snap("Edit description");setBoards(bs=>bs.map(b=>b.id===id?{...b,desc:d}:b));};
   const saveIcon=(id,ic)=>{snap("Change icon");setBoards(bs=>bs.map(b=>b.id===id?{...b,icon:ic}:b));};
@@ -1917,8 +1750,7 @@ export default function App(){
   const handleExportPDF=()=>{
     setIoMenuOpen(false);
     if(!contentRef.current)return;
-    const clone=contentRef.current.cloneNode(true);
-    const win=window.open("","_blank","width=1100,height=800");
+    const clone=contentRef.current.cloneNode(true);const win=window.open("","_blank","width=1100,height=800");
     if(!win){setToast("⚠ Pop-up blocked — please allow pop-ups and try again");return;}
     win.document.write("<!DOCTYPE html><html><head><title>"+(board?.name||"Export")+" — Slate</title>");
     win.document.write("<style>*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter','Segoe UI',system-ui,sans-serif;}");
@@ -1940,8 +1772,7 @@ export default function App(){
     parseImportFile(file,function(groups,err){
       if(err||!groups||!groups.length){setToast("⚠ Import failed"+(err?" — "+err:""));return;}
       snap();
-      const name=file.name.replace(/\.[^.]+$/,"");
-      const total=groups.reduce((a,g)=>a+g.rows.length,0);
+      const name=file.name.replace(/\.[^.]+$/,"");const total=groups.reduce((a,g)=>a+g.rows.length,0);
       const nb={id:uid(),name,desc:"Imported from "+file.name,cat:"ACTIVE",wsId:activeWs,icon:"📥",type:BT.TASK,summarySrc:"all",hist:[{action:"Board imported",detail:total+" items from "+file.name,time:ts(),color:C.green}],columns:cloneCols(DCOLS),groups:groups};
       setBoards(bs=>[...bs,nb]);setActiveId(nb.id);setToast("✅ Imported \""+name+"\" — "+total+" items");});
     e.target.value="";};
@@ -1952,9 +1783,7 @@ export default function App(){
       if(!text||!text.trim()){setToast("⚠ Clipboard is empty");return;}
       const lines=text.trim().split("\n").map(l=>l.split("\t").length>1?l.split("\t"):l.split(","));
       if(lines.length<1){setToast("⚠ No data found in clipboard");return;}
-      const hdr=lines[0].map(h=>(h||"").trim().toLowerCase());
-      const hasHeader=hdr.some(h=>["name","task","item","title","status","owner","person","priority"].includes(h));
-      const dataRows=hasHeader?lines.slice(1):lines;
+      const hdr=lines[0].map(h=>(h||"").trim().toLowerCase());const hasHeader=hdr.some(h=>["name","task","item","title","status","owner","person","priority"].includes(h));const dataRows=hasHeader?lines.slice(1):lines;
       if(!dataRows.length){setToast("⚠ No data rows found");return;}
       let taskIdx=0,statusIdx=-1,ownerIdx=-1,priorityIdx=-1;
       if(hasHeader){
@@ -2007,8 +1836,7 @@ export default function App(){
     const ss=sortSt[gId];
     if(ss?.dir)r=[...r].sort((a,b)=>{let va=String(rv(a,ss.colId==="timeline"?"tlStart":ss.colId)||"").toLowerCase(),vb=String(rv(b,ss.colId==="timeline"?"tlStart":ss.colId)||"").toLowerCase();return ss.dir==="asc"?(va<vb?-1:va>vb?1:0):(va>vb?-1:va<vb?1:0);});
     if(globalSortBy&&globalSortBy!=="Default"){
-      r=[...r].sort((a,b)=>globalSortBy==="Name"?(rv(a,"task")||"").localeCompare(rv(b,"task")||""):globalSortBy==="Status"?(rv(a,"status")||"").localeCompare(rv(b,"status")||""):globalSortBy==="Priority"?(_PORD[rv(a,"priority")]||4)-(_PORD[rv(b,"priority")]||4):globalSortBy==="Owner"?(rv(a,"owner")||"").localeCompare(rv(b,"owner")||""):0);
-    }
+      r=[...r].sort((a,b)=>globalSortBy==="Name"?(rv(a,"task")||"").localeCompare(rv(b,"task")||""):globalSortBy==="Status"?(rv(a,"status")||"").localeCompare(rv(b,"status")||""):globalSortBy==="Priority"?(_PORD[rv(a,"priority")]||4)-(_PORD[rv(b,"priority")]||4):globalSortBy==="Owner"?(rv(a,"owner")||"").localeCompare(rv(b,"owner")||""):0);}
     return r;
   },[filters,search,sortSt,globalSortBy,quickFilter,currentUser]);
 
@@ -2019,24 +1847,18 @@ export default function App(){
   const getGCols=useCallback(g=>{let c=cols;if(isWk(g)){const has=c.find(x=>x.id==="weeklyStatus");if(!has)c=[...c,{id:"weeklyStatus",name:"Weekly Status",type:"weeklyStatus",w:250}];}if(hiddenCols.length>0)c=c.filter(x=>!hiddenCols.includes(x.name));return c;},[cols,hiddenCols]);
   const onRowDrop=(e,toG,toR)=>{if(e.currentTarget&&e.currentTarget.style){e.currentTarget.style.borderTop="";e.currentTarget.style.background="";}if(!dragRow)return;setB(bi,b=>{let row;const gs=b.groups.map(g=>{if(g.id===dragRow.gId){row=g.rows.find(r=>r.id===dragRow.rId);return({...g,rows:g.rows.filter(r=>r.id!==dragRow.rId)});}return g;});if(!row)return b;return({...b,groups:gs.map(g=>{if(g.id!==toG)return g;const i=g.rows.findIndex(r=>r.id===toR);const nr=[...g.rows];nr.splice(i===-1?nr.length:i,0,row);return({...g,rows:nr});})});});setDragRow(null);};
   const onGDrop=(e,toG)=>{if(e.currentTarget&&e.currentTarget.style){e.currentTarget.style.borderTop="";}if(!dragGroup||dragGroup===toG)return;setB(bi,b=>{const gs=[...b.groups];const fi=gs.findIndex(g=>g.id===dragGroup);const ti=gs.findIndex(g=>g.id===toG);const[m]=gs.splice(fi,1);gs.splice(ti,0,m);return({...b,groups:gs});});setDragGroup(null);};
-
   let detailRow=null,detailGId=null;if(detailPanel){board?.groups.forEach(g=>{const r=g.rows.find(r2=>r2.id===detailPanel.rId);if(r){detailRow=r;detailGId=g.id;}});}
   let updRow=null;if(updPanel){const g=board?.groups.find(g2=>g2.id===updPanel.gId);updRow=g?.rows.find(r=>r.id===updPanel.rId);}
-  const unreadCount=useMemo(()=>notifs.filter(n=>!n.read).length,[notifs]);
-  const histBadge=useMemo(()=>boards.reduce((a,b)=>(a+(b.hist||[]).length),0),[boards]);
+  const unreadCount=useMemo(()=>notifs.filter(n=>!n.read).length,[notifs]);const histBadge=useMemo(()=>boards.reduce((a,b)=>(a+(b.hist||[]).length),0),[boards]);
   const histItems=useMemo(()=>boards.filter(b=>histFilter==="all"||b.id===histFilter).flatMap(b=>(b.hist||[]).map(h=>({...h,board:b.name,boardId:b.id}))),[boards,histFilter]);
-
   kbRef.current={selCount,bulkDuplicate,addRow:()=>{if(board?.groups?.[0]?.id)addRow(board.groups[0].id);},detailPanel,setDetailPanel,updPanel,setUpdPanel,sharePanel,setSharePanel,wsSharePanel,setWsSharePanel,adminOpen,setAdminOpen,historyOpen,setHistoryOpen,autoPanel,setAutoPanel,templateModal,setTemplateModal,searchOpen,filterOpen,setFilterOpen,shortcutsOpen,handlePasteImport,setGlobalSearchOpen};
 
   const SyncBanner=useCallback(({icon,title,sub,pill,pillBg})=>(<div style={{background:"linear-gradient(90deg,#f0f0ff,#f0fffe)",border:"1px solid #d8d4ff",borderRadius:8,padding:"10px 16px",marginBottom:16,..._fc,gap:10,fontSize:13,flexWrap:"wrap"}}><span style={{fontWeight:600}}>{icon} {title}</span><span style={{color:V.tMut8}}>{sub}</span>{pill&&<span style={{marginLeft:"auto",background:pillBg||"linear-gradient(135deg,#6c5ce7,#0984e3)",color:"#fff",borderRadius:20,padding:"2px 12px",fontSize:11,fontWeight:700}}>{pill}</span>}</div>),[]);
 
   const T=THEMES[currentUser.darkMode?"dark":"light"];const isDark=!!currentUser.darkMode;
-
   if(!authedUser) return (<AuthScreen onAuth={onAuth}/>);
   const ctxVal=useMemo(()=>({people,setPeople,statuses,setStatuses:setBoardStatuses,priorities,setPriorities:setBoardPriorities,allTags,setAllTags,bStatuses,bPriorities,currentUser,isDark,T}),[people,statuses,priorities,allTags,bStatuses,bPriorities,currentUser,isDark,T]);
   return(<SlateCtx.Provider value={ctxVal}>
-
-  return(
     <div style={{fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",height:"100vh",display:"flex",background:T.bg,color:T.text,userSelect:resizing?"none":"auto","--sl-bg":T.bg,"--sl-card":T.card,"--sl-text":T.text,"--sl-textSoft":T.textSoft,"--sl-textMuted":T.textMuted,"--sl-border":T.border,"--sl-borderSoft":T.borderSoft,"--sl-rowHover":T.rowHover,"--sl-rowAlt":T.rowAlt,"--sl-input":T.input,"--sl-inputBorder":T.inputBorder}}>
       <style>{`[data-board-item]:hover .favStar{opacity:1 !important;}
 [data-stick="0"]{position:sticky;left:0;z-index:3;background:var(--sl-card,#fff);}
@@ -2106,6 +1928,40 @@ input[type="checkbox"]:active{transform:scale(1.2);}
 [data-sidebar-logo]:hover{transform:rotate(-8deg) scale(1.05);}
 [data-empty-state]{animation:fadeIn .4s ease;}
 [data-group-color-bar]{transition:background .2s;}
+/* ─── Mobile responsive ─── */
+@media(max-width:768px){
+  [data-sidebar]{position:fixed !important;left:0;top:0;bottom:0;z-index:10000;width:280px !important;transform:translateX(-100%);transition:transform .25s cubic-bezier(.25,.8,.25,1) !important;box-shadow:4px 0 20px rgba(0,0,0,.3);}
+  [data-sidebar][data-mobile-open="true"]{transform:translateX(0);}
+  [data-sidebar-overlay]{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;animation:backdropIn .2s ease;}
+  [data-header]{flex-wrap:wrap;gap:6px !important;padding:8px 12px !important;}
+  [data-header] h2{font-size:16px !important;}
+  [data-toolbar]{flex-wrap:wrap !important;gap:4px !important;padding-bottom:6px !important;}
+  [data-toolbar] button{padding:4px 8px !important;font-size:11px !important;min-height:32px;}
+  [data-content-area]{padding:10px 12px 80px !important;}
+  [data-quick-filters]{gap:4px !important;overflow-x:auto;flex-wrap:nowrap !important;padding-bottom:4px;-webkit-overflow-scrolling:touch;}
+  [data-quick-filters] button{flex-shrink:0;font-size:11px !important;padding:4px 10px !important;}
+  [data-col-header]{display:none !important;}
+  [data-group-rows]{display:flex;flex-direction:column;gap:6px;padding:6px;}
+  [data-group-rows]>div{display:block !important;min-width:0 !important;}
+  [data-row-id]{display:flex !important;flex-direction:column !important;min-width:0 !important;background:var(--sl-card,#fff) !important;border-radius:8px !important;border:1px solid var(--sl-borderSoft,#f0f0f0) !important;padding:10px 12px !important;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  [data-row-id]>div{width:100% !important;min-width:0 !important;border-right:none !important;padding:2px 0 !important;}
+  [data-row-id] [data-stick]{position:static !important;left:auto !important;box-shadow:none !important;}
+  [data-modal-backdrop]{align-items:flex-end !important;padding:0 !important;}
+  [data-modal-backdrop]>div{border-radius:16px 16px 0 0 !important;max-height:90vh !important;width:100% !important;max-width:100% !important;}
+  [data-kanban-card]{min-width:0 !important;}
+  [data-side-panel]{width:100vw !important;max-width:100vw !important;}
+  [data-login-split]{flex-direction:column !important;}
+  [data-login-split]>div:first-child{flex:none !important;min-height:140px !important;padding:24px !important;}
+  [data-login-split]>div:first-child h1{font-size:24px !important;}
+  [data-login-split]>div:last-child{padding:24px 16px !important;}
+  [data-group-header]{padding:8px 10px !important;font-size:12px !important;}
+  [data-group-header] .ProgBar{display:none;}
+  select,input[type="text"],input[type="date"],input[type="number"],textarea{font-size:16px !important;min-height:36px;}
+  [data-kanban-col]{min-width:260px !important;max-width:280px !important;flex:0 0 260px !important;}
+  [data-content-area]{padding-bottom:80px !important;}
+  [data-mobile-nav]{display:flex !important;}}
+@media(min-width:769px){
+  [data-mobile-nav]{display:none !important;}}
 @media print{
   body{background:#fff !important;color:#000 !important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
   [data-sidebar],[data-header] button,[data-toolbar],[data-quick-filters],
@@ -2119,7 +1975,8 @@ input[type="checkbox"]:active{transform:scale(1.2);}
   [data-header]{border:none !important;padding:4px 0 !important;}
   @page{margin:0.6in;size:landscape;}}
 `}</style>
-      <div data-sidebar style={{width:sideCol?48:sidebarW,background:C.dark,color:"#fff",display:"flex",flexDirection:"column",flexShrink:0,transition:sideCol?"width .2s":"none",overflow:"hidden",position:"relative"}}>
+      {mobileOpen&&<div data-sidebar-overlay onClick={()=>setMobileOpen(false)}/>}
+      <div data-sidebar data-mobile-open={mobileOpen?"true":"false"} style={{width:sideCol?48:sidebarW,background:C.dark,color:"#fff",display:"flex",flexDirection:"column",flexShrink:0,transition:sideCol?"width .2s":"none",overflow:"hidden",position:"relative"}}>
         <div style={{padding:"14px 16px",..._fc,gap:10,borderBottom:"1px solid rgba(255,255,255,.1)"}}><div onClick={()=>setSideCol(!sideCol)} style={{cursor:"pointer",flexShrink:0}}><Logo size={30}/></div>{!sideCol&&<span style={{fontSize:17,fontWeight:700}}>slate</span>}</div>
         {!sideCol&&<div style={{display:"contents"}}>
           <div style={{padding:"10px 12px",borderBottom:"1px solid rgba(255,255,255,.08)"}}>
@@ -2167,7 +2024,7 @@ input[type="checkbox"]:active{transform:scale(1.2);}
                     onDragOver={e=>{e.preventDefault();e.stopPropagation();e.dataTransfer.dropEffect="move";if(dragBoardId&&dragBoardId!==b.id)setDragOverBoardId(b.id);}}
                     onDragLeave={e=>{e.stopPropagation();if(dragOverBoardId===b.id)setDragOverBoardId(null);}}
                     onDrop={e=>{e.preventDefault();e.stopPropagation();setDragOverBoardId(null);setDragOverCat(null);if(!dragBoardId||dragBoardId===b.id)return;setBoards(bs=>{const n=[...bs];const fromIdx=n.findIndex(x=>x.id===dragBoardId);if(fromIdx<0)return bs;n[fromIdx]={...n[fromIdx],cat};const toIdx=n.findIndex(x=>x.id===b.id);const [moved]=n.splice(fromIdx,1);n.splice(toIdx,0,moved);return n;});setDragBoardId(null);}}
-                    data-board-item onClick={()=>setActiveId(b.id)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"board",boardId:b.id});}} style={{padding:"5px 10px 5px 38px",fontSize:13,cursor:"grab",background:b.id===activeId?"rgba(255,255,255,.12)":"transparent",..._fc,gap:7,color:b.id===activeId?"#fff":"rgba(255,255,255,.65)",borderRadius:4,margin:"1px 6px",borderLeft:b.id===activeId?"3px solid #579bfc":"3px solid transparent",borderTop:dragOverBoardId===b.id?"2px solid #579bfc":"2px solid transparent",transition:"all .15s,transform .12s",opacity:dragBoardId===b.id?0.4:1}} onMouseEnter={e=>{if(b.id!==activeId)e.currentTarget.style.background="rgba(255,255,255,.06)";}} onMouseLeave={e=>{e.currentTarget.style.background=b.id===activeId?"rgba(255,255,255,.12)":"transparent";}}>
+                    data-board-item onClick={()=>{setActiveId(b.id);setMobileOpen(false);}} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"board",boardId:b.id});}} style={{padding:"5px 10px 5px 38px",fontSize:13,cursor:"grab",background:b.id===activeId?"rgba(255,255,255,.12)":"transparent",..._fc,gap:7,color:b.id===activeId?"#fff":"rgba(255,255,255,.65)",borderRadius:4,margin:"1px 6px",borderLeft:b.id===activeId?"3px solid #579bfc":"3px solid transparent",borderTop:dragOverBoardId===b.id?"2px solid #579bfc":"2px solid transparent",transition:"all .15s,transform .12s",opacity:dragBoardId===b.id?0.4:1}} onMouseEnter={e=>{if(b.id!==activeId)e.currentTarget.style.background="rgba(255,255,255,.06)";}} onMouseLeave={e=>{e.currentTarget.style.background=b.id===activeId?"rgba(255,255,255,.12)":"transparent";}}>
                     <span style={{fontSize:11}}>{b.icon}{isPortfolio(b)?" 📊":isDash(b)?" 📈":isSummaryB(b)?" 📑":b.linkedMainBoardId?" 🔗":b.syncTargets?.length?" ⇄":""}</span>
                     <div style={{flex:1,minWidth:0}}>
                       {rnBoard===b.id?<input value={rnVal} onChange={e=>setRnVal(e.target.value)} onBlur={()=>{saveBN(b.id,rnVal);setRnBoard(null);}} onKeyDown={e=>{if(e.key==="Enter"){saveBN(b.id,rnVal);setRnBoard(null);}}} onClick={e=>e.stopPropagation()} style={{width:"100%",background:"rgba(255,255,255,.15)",border:"none",color:"#fff",borderRadius:3,padding:"2px 6px",fontSize:12,outline:"none",boxSizing:"border-box"}} autoFocus/>
@@ -2187,13 +2044,13 @@ input[type="checkbox"]:active{transform:scale(1.2);}
           <div style={{padding:"4px 12px 8px",textAlign:"center"}}><span style={{fontSize:9,color:"rgba(255,255,255,.45)",letterSpacing:.5}}>v{APP_VERSION}</span></div></div>}
         {!sideCol&&<div onMouseDown={e=>{e.preventDefault();const startX=e.clientX;const startW=sidebarW;const onMove=ev=>{const nw=Math.max(180,Math.min(450,startW+(ev.clientX-startX)));setSidebarW(nw);};const onUp=()=>{document.removeEventListener("mousemove",onMove);document.removeEventListener("mouseup",onUp);};document.addEventListener("mousemove",onMove);document.addEventListener("mouseup",onUp);}} style={{position:"absolute",top:0,right:0,bottom:0,width:4,cursor:"col-resize",background:"transparent",zIndex:10,transition:"background .15s"}} onMouseEnter={e=>e.currentTarget.style.background="rgba(87,155,252,.5)"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}/>}
       </div>
-
       <div style={{flex:1,display:"flex",flexDirection:"column",minWidth:0}}>
         <div data-header style={{background:T.headerBg,borderBottom:"1px solid "+T.headerBorder,padding:"0 24px"}}>
           <div style={{..._fc,gap:12,padding:"14px 0 2px"}}>
-            <div style={{position:"relative"}}><div onClick={()=>setHeaderIconOpen(o=>!o)} style={{width:38,height:38,borderRadius:8,border:"2px solid "+(headerIconOpen?C.purple:T.border),..._fcc,fontSize:20,cursor:"pointer",background:headerIconOpen?(isDark?"#2a1a3a":"#f5f3ff"):T.card,transition:"all .15s",flexShrink:0}} title="Change icon">{board?.icon||"📋"}</div>
-              {headerIconOpen&&<div data-popup style={{position:"absolute",top:"100%",left:0,marginTop:6,background:T.card,border:"1px solid "+T.border,borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,.25)",padding:10,display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,width:240,zIndex:100010}}>
-                {BOARD_ICONS.map(ic=>(<div key={ic} onClick={()=>{saveIcon(activeId,ic);setHeaderIconOpen(false);}} style={{width:34,height:34,borderRadius:6,..._fcc,fontSize:18,cursor:"pointer",background:board?.icon===ic?"#f0eeff":"transparent",border:board?.icon===ic?"2px solid #6c5ce7":"2px solid transparent"}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background=board?.icon===ic?"#f0eeff":"transparent"}>{ic}</div>))}
+            <div data-mobile-nav onClick={()=>setMobileOpen(o=>!o)} style={{width:34,height:34,borderRadius:6,..._fcc,cursor:"pointer",background:mobileOpen?C.purple+"22":"transparent",color:T.text,fontSize:18,flexShrink:0,transition:"all .15s"}}>☰</div>
+            <div style={{position:"relative"}}><div onClick={()=>setHeaderIconOpen(o=>!o)} style={{width:38,height:38,borderRadius:8,border:"2px solid "+(headerIconOpen?C.purple:T.border),..._fcc,fontSize:20,cursor:"pointer",background:headerIconOpen?(isDark?"#2a1a3a":C.lgPurp):T.card,transition:"all .15s",flexShrink:0}} title="Change icon">{board?.icon||"📋"}</div>
+              {headerIconOpen&&<div data-popup style={{position:"absolute",top:"100%",left:0,marginTop:6,background:T.card,border:B.bdr,borderRadius:10,boxShadow:"0 8px 24px rgba(0,0,0,.25)",padding:10,display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:4,width:240,zIndex:100010}}>
+                {BOARD_ICONS.map(ic=>(<div key={ic} onClick={()=>{saveIcon(activeId,ic);setHeaderIconOpen(false);}} style={{width:34,height:34,borderRadius:6,..._fcc,fontSize:18,cursor:"pointer",background:board?.icon===ic?C.hlPurp:"transparent",border:board?.icon===ic?"2px solid #6c5ce7":"2px solid transparent"}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background=board?.icon===ic?C.hlPurp:"transparent"}>{ic}</div>))}
               </div>}</div>
             {editBN!=null?<input value={editBN} onChange={e=>setEditBN(e.target.value)} onBlur={()=>{saveBN(activeId,editBN);setEditBN(null);}} onKeyDown={e=>{if(e.key==="Enter"){saveBN(activeId,editBN);setEditBN(null);}}} style={{fontSize:22,fontWeight:700,border:"none",borderBottom:"2px solid #0073ea",outline:"none",background:"transparent"}} autoFocus/>
             :<div>
@@ -2212,27 +2069,27 @@ input[type="checkbox"]:active{transform:scale(1.2);}
             <span data-icon-btn onClick={redo} title={"Redo (Ctrl+Y)"+(redoRef.current.length?" · "+redoRef.current.length+" steps":"")} style={{cursor:redoRef.current.length?"pointer":"default",fontSize:18,opacity:redoRef.current.length?1:0.3,transition:"opacity .2s"}}>↪</span>
             <div style={{position:"relative"}}><span onClick={()=>setHistoryOpen(true)} style={{cursor:"pointer",fontSize:18}}>📜</span>{histBadge>0&&<span data-notif-badge style={{position:"absolute",top:-4,right:-6,background:C.purple,color:"#fff",borderRadius:"50%",width:16,height:16,..._fcc,fontSize:9,fontWeight:700}}>{histBadge>99?"99+":histBadge}</span>}</div>
             <div ref={ioRef} style={{position:"relative"}}>
-              <button onClick={()=>setIoMenuOpen(o=>!o)} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+(ioMenuOpen?C.purple:T.border),background:ioMenuOpen?(isDark?"#2a1a3a":"#f5f3ff"):T.card,cursor:"pointer",fontSize:12,color:ioMenuOpen?C.purple:T.textSoft,fontWeight:600,..._fc,gap:4}}>⇅ Import / Export</button>
-              {ioMenuOpen&&<div data-popup style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:T.card,border:"1px solid "+T.border,borderRadius:10,boxShadow:"0 8px 30px rgba(0,0,0,.25)",width:260,zIndex:100012,overflow:"hidden"}}>
+              <button onClick={()=>setIoMenuOpen(o=>!o)} style={{padding:"4px 10px",borderRadius:6,border:"1px solid "+(ioMenuOpen?C.purple:T.border),background:ioMenuOpen?(isDark?"#2a1a3a":C.lgPurp):T.card,cursor:"pointer",fontSize:12,color:ioMenuOpen?C.purple:T.textSoft,fontWeight:600,..._fc,gap:4}}>⇅ Import / Export</button>
+              {ioMenuOpen&&<div data-popup style={{position:"absolute",top:"calc(100% + 6px)",right:0,background:T.card,border:B.bdr,borderRadius:10,boxShadow:"0 8px 30px rgba(0,0,0,.25)",width:260,zIndex:100012,overflow:"hidden"}}>
                 <div style={{padding:"10px 14px 6px",fontSize:10,fontWeight:700,color:"#999",textTransform:"uppercase",letterSpacing:.8}}>Export</div>
-                <div onClick={handleExportExcel} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div onClick={handleExportExcel} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8}} {...hov()}>
                   <span style={{fontSize:16}}>📗</span><div><div style={{fontWeight:600}}>Board → Excel</div><div style={{fontSize:10,color:"#999"}}>All groups & rows as .csv</div></div></div>
-                <div onClick={handleExportPDF} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div onClick={handleExportPDF} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8}} {...hov()}>
                   <span style={{fontSize:16}}>📄</span><div><div style={{fontWeight:600}}>Board → PDF</div><div style={{fontSize:10,color:"#999"}}>Screenshot of current view</div></div></div>
-                {isDash(board)&&<div onClick={handleExportDashExcel} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                {isDash(board)&&<div onClick={handleExportDashExcel} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8}} {...hov()}>
                   <span style={{fontSize:16}}>📊</span><div><div style={{fontWeight:600}}>Dashboard → Excel</div><div style={{fontSize:10,color:"#999"}}>Stats, breakdown & all items</div></div></div>}
-                {isSummaryB(board)&&<div onClick={handleExportSummaryExcel} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                {isSummaryB(board)&&<div onClick={handleExportSummaryExcel} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8}} {...hov()}>
                   <span style={{fontSize:16}}>📑</span><div><div style={{fontWeight:600}}>Summary → Excel</div><div style={{fontSize:10,color:"#999"}}>Blockers, deadlines, active items</div></div></div>}
-                <div style={{borderTop:"1px solid #f0f0f0",margin:"4px 0"}}/>
+                <div style={{borderTop:B.bdrS,margin:"4px 0"}}/>
                 <div style={{padding:"10px 14px 6px",fontSize:10,fontWeight:700,color:"#999",textTransform:"uppercase",letterSpacing:.8}}>Import</div>
-                <div onClick={handleImport} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8,marginBottom:2}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div onClick={handleImport} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8,marginBottom:2}} {...hov()}>
                   <span style={{fontSize:16}}>📥</span><div><div style={{fontWeight:600}}>Import from file</div><div style={{fontSize:10,color:"#999"}}>.csv file → new board</div></div></div>
-                <div onClick={handlePasteImport} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8,marginBottom:6}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>
+                <div onClick={handlePasteImport} style={{padding:"8px 14px",cursor:"pointer",fontSize:13,..._fc,gap:8,marginBottom:6}} {...hov()}>
                   <span style={{fontSize:16}}>📋</span><div><div style={{fontWeight:600}}>Paste from clipboard</div><div style={{fontSize:10,color:"#999"}}>Ctrl+V — Excel/Sheets → rows</div></div></div></div>}
               <input ref={importRef} type="file" accept=".csv,.tsv,.txt" onChange={onImportFile} style={{display:"none"}}/></div>
-            <div style={{width:1,height:24,background:"#e6e9ef",margin:"0 2px"}}/>
+            <div style={{width:1,height:24,background:C.hlGrey,margin:"0 2px"}}/>
             <div ref={userMenuRef} style={{position:"relative"}}>
-              <div onClick={()=>setUserMenuOpen(o=>!o)} style={{..._fc,gap:6,cursor:"pointer",padding:"3px 8px 3px 4px",borderRadius:20,background:userMenuOpen?"#f0eeff":"transparent",transition:"background .12s"}} onMouseEnter={e=>{if(!userMenuOpen)e.currentTarget.style.background=T.rowHover;}} onMouseLeave={e=>{if(!userMenuOpen)e.currentTarget.style.background="transparent";}}>
+              <div onClick={()=>setUserMenuOpen(o=>!o)} style={{..._fc,gap:6,cursor:"pointer",padding:"3px 8px 3px 4px",borderRadius:20,background:userMenuOpen?C.hlPurp:"transparent",transition:"background .12s"}} onMouseEnter={e=>{if(!userMenuOpen)e.currentTarget.style.background=T.rowHover;}} onMouseLeave={e=>{if(!userMenuOpen)e.currentTarget.style.background="transparent";}}>
                 <div style={{width:30,height:30,borderRadius:"50%",background:currentUser.color,color:"#fff",..._fcc,fontSize:12,fontWeight:700,position:"relative",flexShrink:0}}>
                   {Initials(currentUser.name)}
                   <div style={{position:"absolute",bottom:0,right:0,width:9,height:9,borderRadius:"50%",background:C.green,border:"2px solid #fff"}}/></div>
@@ -2242,12 +2099,12 @@ input[type="checkbox"]:active{transform:scale(1.2);}
             </div></div>
           {editDesc?<div style={{paddingBottom:6}}><input value={descVal} onChange={e=>setDescVal(e.target.value)} onBlur={()=>{saveDesc(activeId,descVal);setEditDesc(false);}} onKeyDown={e=>{if(e.key==="Enter"){saveDesc(activeId,descVal);setEditDesc(false);}}} style={{width:"100%",border:"none",borderBottom:"1px solid #ddd",fontSize:13,color:T.textSoft,outline:"none",padding:"2px 0",boxSizing:"border-box"}} autoFocus/></div>
           :<div onClick={()=>{setEditDesc(true);setDescVal(board?.desc||"");}} data-desc style={{fontSize:13,color:isDark?T.textMuted:board?.desc?"#666":"#bbb",paddingBottom:6,cursor:"pointer"}}>{board?.desc||"Add a board description..."}</div>}
-          {isDash(board)?<div style={{paddingBottom:10,fontSize:13,color:T.textMuted,..._fc,gap:10}}>Cross-board analytics — aggregates all task boards in your workspace <button onClick={handleExportDashExcel} style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,..._fc,gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,..._fc,gap:4}}>📄 PDF</button></div>
-          :isSummaryB(board)?<div style={{paddingBottom:10,fontSize:13,color:T.textMuted,..._fc,gap:10}}>Executive summary — categorized action items for leadership review <button onClick={handleExportSummaryExcel} style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,..._fc,gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,..._fc,gap:4}}>📄 PDF</button></div>
+          {isDash(board)?<div style={{paddingBottom:10,fontSize:13,color:T.textMuted,..._fc,gap:10}}>Cross-board analytics — aggregates all task boards in your workspace <button onClick={handleExportDashExcel} style={{padding:"3px 10px",borderRadius:5,border:B.bdr,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,..._fc,gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:B.bdr,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,..._fc,gap:4}}>📄 PDF</button></div>
+          :isSummaryB(board)?<div style={{paddingBottom:10,fontSize:13,color:T.textMuted,..._fc,gap:10}}>Executive summary — categorized action items for leadership review <button onClick={handleExportSummaryExcel} style={{padding:"3px 10px",borderRadius:5,border:B.bdr,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,..._fc,gap:4}}>📗 Excel</button><button onClick={handleExportPDF} style={{padding:"3px 10px",borderRadius:5,border:B.bdr,background:T.card,cursor:"pointer",fontSize:11,color:T.textSoft,..._fc,gap:4}}>📄 PDF</button></div>
           :<div data-toolbar style={{..._fc,gap:6,paddingBottom:10,flexWrap:"wrap"}}>
-            <div style={{position:"relative"}}><button onClick={()=>setViewDropOpen(o=>!o)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:13,fontWeight:600,color:T.text,..._fc,gap:6}}>{activeView} <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="#999" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
-              {viewDropOpen&&<><div style={{position:"fixed",inset:0,zIndex:9}} onClick={()=>setViewDropOpen(false)}/><div data-popup style={{position:"absolute",top:"calc(100% + 4px)",left:0,background:T.card,border:"1px solid "+T.border,borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,.15)",width:160,zIndex:10,padding:4}}>
-                {["Main table","Kanban","Calendar","Workload","Time","Dashboard","Gantt"].map(v=>(<div key={v} onClick={()=>{setActiveView(v);setViewDropOpen(false);}} style={{padding:"7px 12px",fontSize:13,borderRadius:4,cursor:"pointer",fontWeight:activeView===v?600:400,color:activeView===v?C.blue:T.text,background:activeView===v?(isDark?"#1a3a5c":"#e6f0ff"):"transparent"}} {...hov()}>{v}</div>))}
+            <div style={{position:"relative"}}><button onClick={()=>setViewDropOpen(o=>!o)} style={{padding:"5px 12px",borderRadius:6,border:B.bdr,background:T.card,cursor:"pointer",fontSize:13,fontWeight:600,color:T.text,..._fc,gap:6}}>{activeView} <svg width="10" height="10" viewBox="0 0 10 10" fill="none"><path d="M2 4l3 3 3-3" stroke="#999" strokeWidth="1.5" strokeLinecap="round"/></svg></button>
+              {viewDropOpen&&<><div style={{position:"fixed",inset:0,zIndex:9}} onClick={()=>setViewDropOpen(false)}/><div data-popup style={{position:"absolute",top:"calc(100% + 4px)",left:0,background:T.card,border:B.bdr,borderRadius:8,boxShadow:"0 8px 24px rgba(0,0,0,.15)",width:160,zIndex:10,padding:4}}>
+                {["Main table","Kanban","Calendar","Workload","Time","Dashboard","Gantt"].map(v=>(<div key={v} onClick={()=>{setActiveView(v);setViewDropOpen(false);}} style={{padding:"7px 12px",fontSize:13,borderRadius:4,cursor:"pointer",fontWeight:activeView===v?600:400,color:activeView===v?C.blue:T.text,background:activeView===v?(isDark?"#1a3a5c":C.hlBlue):"transparent"}} {...hov()}>{v}</div>))}
               </div></>}</div>
             <button disabled={boardReadonly} onClick={()=>addRow(board?.groups?.[0]?.id)} style={{padding:"5px 14px",borderRadius:"6px 0 0 6px",border:"none",background:boardReadonly?"#ccc":C.blue,color:"#fff",cursor:boardReadonly?"default":"pointer",fontSize:13,fontWeight:600}}>+ Item</button>
             <div style={{position:"relative"}}><button disabled={boardReadonly} onClick={()=>setTplMenuOpen(o=>!o)} style={{padding:"5px 8px",borderRadius:"0 6px 6px 0",border:"none",borderLeft:"1px solid rgba(255,255,255,.3)",background:boardReadonly?"#ccc":C.blue,color:"#fff",cursor:boardReadonly?"default":"pointer",fontSize:11}}>▾</button>
@@ -2256,20 +2113,19 @@ input[type="checkbox"]:active{transform:scale(1.2);}
                 {itemTemplates.map(tpl=>(<div key={tpl.id} onClick={()=>{insertTemplate(tpl);setTplMenuOpen(false);}} style={{padding:"7px 12px",fontSize:13,cursor:"pointer",..._fc,gap:8}} {...hov()}>
                   <span style={{fontSize:14}}>📄</span><div><div style={{fontWeight:600}}>{tpl.name}</div><div style={{fontSize:10,color:V.tMut}}>{tpl.config.priority} · {(tpl.config.tags||[]).join(", ")||"No tags"}</div></div></div>))}
                 {itemTemplates.length===0&&<div style={{padding:"12px",textAlign:"center",color:V.tMutC,fontSize:12}}>No templates. Right-click a row → Save as template</div>}</div>}</div>
-            <button disabled={boardReadonly} onClick={addGroup} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+T.border,background:T.card,cursor:boardReadonly?"default":"pointer",fontSize:13,color:boardReadonly?"#ccc":T.textSoft}}>+ Group</button>
-            <div style={{position:"relative"}}><button onClick={()=>setFilterOpen(!filterOpen)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+T.border,background:filterOpen?isDark?"#1a3a5c":"#e6f0ff":T.card,cursor:"pointer",fontSize:13,color:T.textSoft,..._fc,gap:4}}>🔽 Filter {Object.values(filters).flat().length>0&&<span style={{background:C.purple,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>{Object.values(filters).flat().length}</span>}{globalSortBy!=="Default"&&<span style={{background:C.orange,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>Sort</span>}{hiddenCols.length>0&&<span style={{background:C.violet,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>-{hiddenCols.length}</span>}</button>{filterOpen&&<FilterPanel filters={filters} setFilters={setFilters} people={people} statuses={statuses} priorities={priorities} allTags={allTags} onClose={()=>setFilterOpen(false)} sortBy={globalSortBy} setSortBy={setGlobalSortBy} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols}/>}</div>
-            <button onClick={()=>setAutoPanel(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+T.border,background:T.card,cursor:"pointer",fontSize:13,color:T.textSoft}}>⚡ Auto {boardAutos.filter(a=>a.enabled).length>0&&<span style={{background:C.orange,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{boardAutos.filter(a=>a.enabled).length}</span>}</button>
-            {!isPortfolio(board)&&<div style={{position:"relative"}}><button onClick={()=>setSyncModal(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.syncTargets?.length||board?.linkedMainBoardId?C.violet:T.border),background:board?.syncTargets?.length||board?.linkedMainBoardId?isDark?"#2a1a3a":"#f5f3ff":T.card,cursor:"pointer",fontSize:13,color:board?.syncTargets?.length||board?.linkedMainBoardId?C.violet:T.textSoft}}>🔗 Sync {(board?.syncTargets?.length||0)+(board?.linkedMainBoardId?1:0)>0&&<span style={{background:C.violet,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{(board?.syncTargets?.length||0)+(board?.linkedMainBoardId?1:0)}</span>}</button></div>}
-            <button onClick={()=>setSharePanel(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.shared?.length?C.blue:T.border),background:board?.shared?.length?isDark?"#1a3a5c":"#e6f0ff":T.card,cursor:"pointer",fontSize:13,color:board?.shared?.length?C.blue:T.textSoft}}>👥 Share {board?.shared?.length>0&&<span style={{background:C.blue,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{board.shared.length}</span>}</button>
+            <button disabled={boardReadonly} onClick={addGroup} style={{padding:"5px 12px",borderRadius:6,border:B.bdr,background:T.card,cursor:boardReadonly?"default":"pointer",fontSize:13,color:boardReadonly?"#ccc":T.textSoft}}>+ Group</button>
+            <div style={{position:"relative"}}><button onClick={()=>setFilterOpen(!filterOpen)} style={{padding:"5px 12px",borderRadius:6,border:B.bdr,background:filterOpen?isDark?"#1a3a5c":C.hlBlue:T.card,cursor:"pointer",fontSize:13,color:T.textSoft,..._fc,gap:4}}>🔽 Filter {Object.values(filters).flat().length>0&&<span style={{background:C.purple,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>{Object.values(filters).flat().length}</span>}{globalSortBy!=="Default"&&<span style={{background:C.orange,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>Sort</span>}{hiddenCols.length>0&&<span style={{background:C.violet,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10}}>-{hiddenCols.length}</span>}</button>{filterOpen&&<FilterPanel filters={filters} setFilters={setFilters} people={people} statuses={statuses} priorities={priorities} allTags={allTags} onClose={()=>setFilterOpen(false)} sortBy={globalSortBy} setSortBy={setGlobalSortBy} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols}/>}</div>
+            <button onClick={()=>setAutoPanel(true)} style={{padding:"5px 12px",borderRadius:6,border:B.bdr,background:T.card,cursor:"pointer",fontSize:13,color:T.textSoft}}>⚡ Auto {boardAutos.filter(a=>a.enabled).length>0&&<span style={{background:C.orange,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{boardAutos.filter(a=>a.enabled).length}</span>}</button>
+            {!isPortfolio(board)&&<div style={{position:"relative"}}><button onClick={()=>setSyncModal(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.syncTargets?.length||board?.linkedMainBoardId?C.violet:T.border),background:board?.syncTargets?.length||board?.linkedMainBoardId?isDark?"#2a1a3a":C.lgPurp:T.card,cursor:"pointer",fontSize:13,color:board?.syncTargets?.length||board?.linkedMainBoardId?C.violet:T.textSoft}}>🔗 Sync {(board?.syncTargets?.length||0)+(board?.linkedMainBoardId?1:0)>0&&<span style={{background:C.violet,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{(board?.syncTargets?.length||0)+(board?.linkedMainBoardId?1:0)}</span>}</button></div>}
+            <button onClick={()=>setSharePanel(true)} style={{padding:"5px 12px",borderRadius:6,border:"1px solid "+(board?.shared?.length?C.blue:T.border),background:board?.shared?.length?isDark?"#1a3a5c":C.hlBlue:T.card,cursor:"pointer",fontSize:13,color:board?.shared?.length?C.blue:T.textSoft}}>👥 Share {board?.shared?.length>0&&<span style={{background:C.blue,color:"#fff",borderRadius:8,padding:"0 6px",fontSize:10,marginLeft:2}}>{board.shared.length}</span>}</button>
           </div>}</div>
-
         <div ref={contentRef} data-content-area data-view-content key={activeView+"-"+activeId} style={{flex:1,overflow:"auto",padding:"16px 24px 24px",background:T.bg}}>
           {isDash(board)&&<DashboardBoard boards={boards}/>}
           {isSummaryB(board)&&<SummaryBoard boards={boards} boardId={board.summarySrc} onChangeSrc={changeSummarySrc} onGoToItem={(bId,gId,rId)=>{setActiveId(bId);setTimeout(()=>setDetailPanel({gId,rId}),100);}}/>}
           {isPortfolio(board)&&<SyncBanner icon="📊" title="Portfolio Board" sub="– Status & Progress auto-sync from linked task boards" pill="Live Sync ON"/>}
           {boardReadonly&&<div style={{background:"#fff8e7",border:"1px solid #ffeaa0",borderRadius:8,padding:"10px 16px",marginBottom:16,..._fc,gap:10,fontSize:13}}><span style={{fontSize:16}}>🔒</span><span style={{fontWeight:600,color:"#b8860b"}}>View Only</span><span style={{color:"#999"}}>— You have read-only access to this board. Contact the owner to request edit access.</span></div>}
           {isWkBoard(board)&&<div data-quick-filters style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
-            {[{id:null,label:"All",icon:"📋"},{id:"mine",label:"My Items",icon:"👤"},{id:"overdue",label:"Overdue",icon:"⚠"},{id:"thisweek",label:"Due This Week",icon:"📅"},{id:"stuck",label:"Stuck",icon:"🔴"},{id:"done",label:"Done",icon:"✅"}].map(qf=>(<button key={qf.id||"all"} onClick={()=>setQuickFilter(quickFilter===qf.id?null:qf.id)} style={{padding:"5px 12px",borderRadius:20,border:"1px solid "+(quickFilter===qf.id?C.blue:T.border),background:quickFilter===qf.id?(isDark?"#1a3a5c":"#e6f0ff"):T.card,cursor:"pointer",fontSize:12,fontWeight:quickFilter===qf.id?700:400,color:quickFilter===qf.id?C.sky:T.textSoft,..._fc,gap:4,transition:"all .12s"}}>{qf.icon} {qf.label}</button>))}
+            {[{id:null,label:"All",icon:"📋"},{id:"mine",label:"My Items",icon:"👤"},{id:"overdue",label:"Overdue",icon:"⚠"},{id:"thisweek",label:"Due This Week",icon:"📅"},{id:"stuck",label:"Stuck",icon:"🔴"},{id:"done",label:"Done",icon:"✅"}].map(qf=>(<button key={qf.id||"all"} onClick={()=>setQuickFilter(quickFilter===qf.id?null:qf.id)} style={{padding:"5px 12px",borderRadius:20,border:"1px solid "+(quickFilter===qf.id?C.blue:T.border),background:quickFilter===qf.id?(isDark?"#1a3a5c":C.hlBlue):T.card,cursor:"pointer",fontSize:12,fontWeight:quickFilter===qf.id?700:400,color:quickFilter===qf.id?C.sky:T.textSoft,..._fc,gap:4,transition:"all .12s"}}>{qf.icon} {qf.label}</button>))}
             {quickFilter&&<button onClick={()=>setQuickFilter(null)} style={{padding:"5px 10px",borderRadius:20,border:"none",background:"transparent",cursor:"pointer",fontSize:11,color:C.red}}>✕ Clear</button>}
             {savedFilters.length>0&&<div style={{width:1,height:20,background:V.bdr,margin:"0 4px"}}/>}
             {savedFilters.map(sf=>(<button key={sf.id} onClick={()=>loadFilterPreset(sf)} style={{padding:"5px 10px",borderRadius:20,border:"1px dashed var(--sl-border,#e0e0e0)",background:V.card,cursor:"pointer",fontSize:11,color:V.tSoft,..._fc,gap:4}}>💾 {sf.name} <span onClick={e=>{e.stopPropagation();delSavedFilter(sf.id);}} style={{color:"#ccc",fontSize:10,marginLeft:2}} title="Remove">✕</span></button>))}
@@ -2281,21 +2137,20 @@ input[type="checkbox"]:active{transform:scale(1.2);}
           {board&&!isPortfolio(board)&&board.linkedMainBoardId&&<SyncBanner icon="🔗" title="Linked Board" sub="– Changes sync to portfolio board automatically" pill="Live Sync ON"/>}
           {board&&!isPortfolio(board)&&board.syncTargets?.length>0&&<div style={{background:"linear-gradient(90deg,#faf5ff,#f5f0ff)",border:"1px solid #e0d8ff",borderRadius:8,padding:"10px 16px",marginBottom:16,..._fc,gap:10,fontSize:13,flexWrap:"wrap"}}>
             <span style={{fontWeight:600}}>⇄ Cross-board sync</span><span style={{color:T.textMuted}}>→ {board.syncTargets.length} board{board.syncTargets.length>1?"s":""}: </span>
-            {board.syncTargets.map(st2=>{const tb=boards.find(b2=>b2.id===st2.boardId);return tb?<span key={st2.boardId} style={{background:"#f0eeff",color:C.purple,padding:"2px 8px",borderRadius:10,fontSize:11,fontWeight:600}}>{tb.name}</span>:null;})}
+            {board.syncTargets.map(st2=>{const tb=boards.find(b2=>b2.id===st2.boardId);return tb?<span key={st2.boardId} style={{background:C.hlPurp,color:C.purple,padding:"2px 8px",borderRadius:10,fontSize:11,fontWeight:600}}>{tb.name}</span>:null;})}
             <span style={{marginLeft:"auto",background:"linear-gradient(135deg,#a25ddc,#6c5ce7)",color:"#fff",borderRadius:20,padding:"2px 12px",fontSize:11,fontWeight:700}}>Cross Sync</span></div>}
           {activeView==="Main table"&&isPortfolio(board)&&board.groups.map(group=>{
-            const rows=processRows(group.rows,group.id);const isH=hovGroup===group.id;const ss=sortSt[group.id];
-            const mCols=board.columns||MAIN_COLS;const visCols=hiddenCols.length>0?mCols.filter(c=>!hiddenCols.includes(c.name)):mCols;
+            const rows=processRows(group.rows,group.id);const isH=hovGroup===group.id;const ss=sortSt[group.id];const mCols=board.columns||MAIN_COLS;const visCols=hiddenCols.length>0?mCols.filter(c=>!hiddenCols.includes(c.name)):mCols;
             return(<div key={group.id} style={{marginBottom:18}} draggable onDragStart={()=>setDragGroup(group.id)} onDragOver={e=>e.preventDefault()} onDrop={e=>onGDrop(e,group.id)}>
               <div onMouseEnter={()=>setHovGroup(group.id)} onMouseLeave={()=>setHovGroup(null)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"group",gId:group.id,groupName:group.name});}} style={{..._fc,gap:8,padding:"7px 12px",background:group.color,borderRadius:"8px 8px 0 0",cursor:"grab"}}>
                 <span onClick={e=>{e.stopPropagation();togGroup(group.id);}} style={{cursor:"pointer",fontSize:11,color:"#fff",transform:group.collapsed?"rotate(-90deg)":"",transition:"transform .15s"}}>▼</span>
                 <span style={{fontSize:14,fontWeight:700,color:"#fff"}}>{group.name}</span>
                 <span style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>{group.rows.length} projects</span>
                 <div style={{flex:1}}/><span onClick={e=>{e.stopPropagation();delGroup(group.id);}} style={{cursor:"pointer",color:"rgba(255,255,255,.5)",fontSize:13,opacity:isH?1:0,transition:"opacity .15s"}}>✕</span></div>
-              {!group.collapsed&&<div data-group-body style={{background:T.card,borderRadius:"0 0 8px 8px",border:"1px solid "+T.border,borderTop:"none"}}><div style={{overflowX:"auto"}}>
-                <div data-col-header style={{display:"flex",borderBottom:"1px solid "+T.border,background:T.rowAlt,minWidth:"fit-content"}}>
+              {!group.collapsed&&<div data-group-body style={{background:T.card,borderRadius:"0 0 8px 8px",border:B.bdr,borderTop:"none"}}><div style={{overflowX:"auto"}}>
+                <div data-col-header style={{display:"flex",borderBottom:B.bdr,background:T.rowAlt,minWidth:"fit-content"}}>
                   <div data-stick="0" style={{width:44,flexShrink:0,..._fcc}}><input type="checkbox" checked={group.rows.length>0&&group.rows.every(r=>r.checked)} onChange={e=>selectAllInGroup(group.id,e.target.checked)} style={{margin:0}}/></div>
-                  {visCols.map(col=>{const sortId=col.id==="tltype"?"timeline":col.id==="progress"?"projectProgress":col.id;const isSorted=ss&&ss.colId===sortId;const isColDrag=dragCol===col.id;const isColOver=dragOverCol===col.id&&dragCol&&dragCol!==col.id;return(<div key={col.id} data-stick={col.id==="task"?"44":undefined} draggable={!resizing} onDragStart={e=>{e.stopPropagation();setDragCol(col.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("colDrag",col.id);}} onDragOver={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)setDragOverCol(col.id);}} onDragLeave={()=>{if(dragOverCol===col.id)setDragOverCol(null);}} onDrop={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)reorderCol(dragCol,col.id);setDragCol(null);setDragOverCol(null);}} onDragEnd={()=>{setDragCol(null);setDragOverCol(null);}} style={{width:col.w,flexShrink:0,padding:"7px 6px",fontSize:12,fontWeight:600,color:T.textSoft,..._fc,gap:2,borderRight:"1px solid #f0f0f0",cursor:"grab",background:isColOver?"#dbeafe":isSorted?"#eef3ff":"transparent",borderLeft:isColOver?"2px solid #0073ea":"2px solid transparent",opacity:isColDrag?0.4:1,transition:"background .12s, opacity .12s",position:"relative"}} onMouseEnter={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=1)} onMouseLeave={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=0)}>
+                  {visCols.map(col=>{const sortId=col.id==="tltype"?"timeline":col.id==="progress"?"projectProgress":col.id;const isSorted=ss&&ss.colId===sortId;const isColDrag=dragCol===col.id;const isColOver=dragOverCol===col.id&&dragCol&&dragCol!==col.id;return(<div key={col.id} data-stick={col.id==="task"?"44":undefined} draggable={!resizing} onDragStart={e=>{e.stopPropagation();setDragCol(col.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("colDrag",col.id);}} onDragOver={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)setDragOverCol(col.id);}} onDragLeave={()=>{if(dragOverCol===col.id)setDragOverCol(null);}} onDrop={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)reorderCol(dragCol,col.id);setDragCol(null);setDragOverCol(null);}} onDragEnd={()=>{setDragCol(null);setDragOverCol(null);}} style={{width:col.w,flexShrink:0,padding:"7px 6px",fontSize:12,fontWeight:600,color:T.textSoft,..._fc,gap:2,borderRight:B.bdrS,cursor:"grab",background:isColOver?"#dbeafe":isSorted?"#eef3ff":"transparent",borderLeft:isColOver?"2px solid #0073ea":"2px solid transparent",opacity:isColDrag?0.4:1,transition:"background .12s, opacity .12s",position:"relative"}} onMouseEnter={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=1)} onMouseLeave={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=0)}>
                     <span onClick={()=>{if(col.id==="linkedBoard")return;const nd=isSorted&&ss.dir==="asc"?"desc":isSorted&&ss.dir==="desc"?null:"asc";doSort(group.id,sortId,nd);}} style={{flex:1,..._ell}}>{col.name}{col.synced&&<span style={{marginLeft:4,fontSize:9,color:C.violet}}>🔗</span>}</span>
                     {isSorted&&<span style={{fontSize:9,color:C.blue}}>{ss.dir==="asc"?"↑":"↓"}</span>}
                     <span className="colMenu" onClick={e=>{e.stopPropagation();setColCtx({x:e.clientX,y:e.clientY,colId:col.id,gId:group.id});}} style={{opacity:0,cursor:"pointer",padding:"2px 3px",borderRadius:3,color:"#999",fontSize:14,transition:"opacity .15s",lineHeight:1}} onMouseEnter={e=>e.currentTarget.style.background="#eee"} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>⋮</span>
@@ -2303,31 +2158,30 @@ input[type="checkbox"]:active{transform:scale(1.2);}
                   </div>);})}
                   <div style={{width:36,flexShrink:0}}/></div>
                 <div data-group-rows>{rows.map(row=>{
-                  const linked=boards.find(b=>b.linkedMainItemName===rv(row,"task")&&!isPortfolio(b));
-                  const prog=row.projectProgress||0;
-                  return(<div key={row.id} data-row-id={row.id} style={{display:"flex",borderBottom:"1px solid "+T.borderSoft,minWidth:"fit-content",background:rowTint(row,isDark)}} draggable onDragStart={()=>setDragRow({gId:group.id,rId:row.id})} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)} onMouseEnter={e=>{const t=rowTint(row,isDark);e.currentTarget.style.background=t==="transparent"?T.rowHover:t;}} onMouseLeave={e=>e.currentTarget.style.background=rowTint(row,isDark)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"row",gId:group.id,rId:row.id,groups:board.groups});}}>
+                  const linked=boards.find(b=>b.linkedMainItemName===rv(row,"task")&&!isPortfolio(b));const prog=row.projectProgress||0;
+                  return(<div key={row.id} data-row-id={row.id} style={{display:"flex",borderBottom:B.bdrS,minWidth:"fit-content",background:rowTint(row,isDark)}} draggable onDragStart={()=>setDragRow({gId:group.id,rId:row.id})} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)} onMouseEnter={e=>{const t=rowTint(row,isDark);e.currentTarget.style.background=t==="transparent"?T.rowHover:t;}} onMouseLeave={e=>e.currentTarget.style.background=rowTint(row,isDark)} onContextMenu={e=>{e.preventDefault();setCtxMenu({x:e.clientX,y:e.clientY,type:"row",gId:group.id,rId:row.id,groups:board.groups});}}>
                     <div data-stick="0" style={{width:44,flexShrink:0,..._fcc}}><input type="checkbox" checked={row.checked||false} onChange={e=>upRow(group.id,row.id,"checked",e.target.checked)} style={{margin:0}}/></div>
                     {visCols.map(col=>{
-                      if(col.id==="task")return(<div key={col.id} data-stick="44" style={{width:col.w,flexShrink:0,padding:"6px 8px",..._fc,gap:6,fontWeight:600,fontSize:13,borderRight:"1px solid "+T.borderSoft}}>
+                      if(col.id==="task")return(<div key={col.id} data-stick="44" style={{width:col.w,flexShrink:0,padding:"6px 8px",..._fc,gap:6,fontWeight:600,fontSize:13,borderRight:B.bdrS}}>
                         <span onClick={()=>setDetailPanel({gId:group.id,rId:row.id})} style={{cursor:"pointer"}}>{rv(row,"task")||"—"}</span>
-                        {linked&&<span style={{background:"#f0eeff",color:C.purple,borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>linked</span>}</div>);
-                      if(col.id==="owner")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}><select value={rv(row,"owner")} onChange={e=>upRow(group.id,row.id,"owner",e.target.value)} style={{border:"none",background:"transparent",fontSize:12,outline:"none",width:"100%"}}><option value="">—</option>{people.map(p=><option key={p}>{p}</option>)}</select></div>);
-                      if(col.id==="status")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}>{linked?<div title="Auto-synced from linked board" style={{background:SC[rv(row,"status")]||"#ccc",color:"#fff",borderRadius:4,padding:"3px 10px",fontSize:11,fontWeight:700,textAlign:"center"}}>{rv(row,"status")} 🔗</div>:<select value={rv(row,"status")} onChange={e=>upRow(group.id,row.id,"status",e.target.value)} style={{width:"100%",padding:"4px",borderRadius:4,border:"none",background:SC[rv(row,"status")]||"#ccc",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none"}}>{statuses.map(s=><option key={s}>{s}</option>)}</select>}</div>);
-                      if(col.id==="priority")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}><select value={rv(row,"priority")} onChange={e=>upRow(group.id,row.id,"priority",e.target.value)} style={{width:"100%",padding:"4px",borderRadius:4,border:"none",background:PC[rv(row,"priority")]||"#ccc",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none"}}>{priorities.map(p=><option key={p}>{p}</option>)}</select></div>);
-                      if(col.id==="tltype")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}><select value={row.timeline||""} onChange={e=>upRow(group.id,row.id,"timeline",e.target.value)} style={{padding:"3px 8px",borderRadius:4,border:"none",background:TL_TYPE_C[row.timeline]||"#ccc",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none",width:"100%"}}>{TL_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>);
-                      if(col.id==="customer")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}><select value={row.customer||""} onChange={e=>upRow(group.id,row.id,"customer",e.target.value)} style={{padding:"3px 8px",borderRadius:4,border:"none",background:CUST_C[row.customer]||"#ccc",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none",width:"100%"}}>{CUSTOMERS.map(c=><option key={c}>{c}</option>)}</select></div>);
-                      if(col.id==="team")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}><select value={row.team||""} onChange={e=>upRow(group.id,row.id,"team",e.target.value)} style={{padding:"3px 8px",borderRadius:4,border:"none",background:row.team?"#f0eeff":"#f5f6f8",color:row.team?C.purple:"#aaa",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none",width:"100%"}}><option value="">—</option>{TEAMS.map(t=><option key={t}>{t}</option>)}</select></div>);
-                      if(col.id==="progress")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}><div style={{..._fc,gap:6}}><div style={{flex:1,height:8,borderRadius:4,background:"#e0e0e0"}}><div style={{width:prog+"%",background:"linear-gradient(90deg,#6c5ce7,#0984e3)",height:8,borderRadius:4,transition:"width 0.4s"}}/></div><span style={{fontSize:11,color:T.textMuted,minWidth:28}}>{prog}%</span></div></div>);
-                      if(col.id==="weeklyUpdate")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",fontSize:12,color:linked?"#888":"#333",borderRight:"1px solid "+T.borderSoft}}>{linked?<span title="Auto-synced">{rv(row,"weeklyUpdate")||"—"} 🔗</span>:<input value={rv(row,"weeklyUpdate")||""} onChange={e=>upRow(group.id,row.id,"weeklyUpdate",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:12,outline:"none"}} placeholder="Update..."/>}</div>);
-                      if(col.id==="linkedBoard")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}>{linked?<button onClick={()=>setActiveId(linked.id)} style={{background:"#f0eeff",color:C.purple,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>{linked.name} →</button>:<span style={{color:"#ccc",fontSize:11}}>No link</span>}</div>);
-                      return <div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:"1px solid "+T.borderSoft}}>—</div>;})}
+                        {linked&&<span style={{background:C.hlPurp,color:C.purple,borderRadius:4,padding:"1px 6px",fontSize:10,fontWeight:700}}>linked</span>}</div>);
+                      if(col.id==="owner")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}><select value={rv(row,"owner")} onChange={e=>upRow(group.id,row.id,"owner",e.target.value)} style={{border:"none",background:"transparent",fontSize:12,outline:"none",width:"100%"}}><option value="">—</option>{people.map(p=><option key={p}>{p}</option>)}</select></div>);
+                      if(col.id==="status")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}>{linked?<div title="Auto-synced from linked board" style={{background:SC[rv(row,"status")]||"#ccc",color:"#fff",borderRadius:4,padding:"3px 10px",fontSize:11,fontWeight:700,textAlign:"center"}}>{rv(row,"status")} 🔗</div>:<select value={rv(row,"status")} onChange={e=>upRow(group.id,row.id,"status",e.target.value)} style={{width:"100%",padding:"4px",borderRadius:4,border:"none",background:SC[rv(row,"status")]||"#ccc",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none"}}>{statuses.map(s=><option key={s}>{s}</option>)}</select>}</div>);
+                      if(col.id==="priority")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}><select value={rv(row,"priority")} onChange={e=>upRow(group.id,row.id,"priority",e.target.value)} style={{width:"100%",padding:"4px",borderRadius:4,border:"none",background:PC[rv(row,"priority")]||"#ccc",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none"}}>{priorities.map(p=><option key={p}>{p}</option>)}</select></div>);
+                      if(col.id==="tltype")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}><select value={row.timeline||""} onChange={e=>upRow(group.id,row.id,"timeline",e.target.value)} style={{padding:"3px 8px",borderRadius:4,border:"none",background:TL_TYPE_C[row.timeline]||"#ccc",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none",width:"100%"}}>{TL_TYPES.map(t=><option key={t}>{t}</option>)}</select></div>);
+                      if(col.id==="customer")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}><select value={row.customer||""} onChange={e=>upRow(group.id,row.id,"customer",e.target.value)} style={{padding:"3px 8px",borderRadius:4,border:"none",background:CUST_C[row.customer]||"#ccc",color:"#fff",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none",width:"100%"}}>{CUSTOMERS.map(c=><option key={c}>{c}</option>)}</select></div>);
+                      if(col.id==="team")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}><select value={row.team||""} onChange={e=>upRow(group.id,row.id,"team",e.target.value)} style={{padding:"3px 8px",borderRadius:4,border:"none",background:row.team?C.hlPurp:"#f5f6f8",color:row.team?C.purple:"#aaa",fontSize:11,fontWeight:700,cursor:"pointer",outline:"none",width:"100%"}}><option value="">—</option>{TEAMS.map(t=><option key={t}>{t}</option>)}</select></div>);
+                      if(col.id==="progress")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}><div style={{..._fc,gap:6}}><div style={{flex:1,height:8,borderRadius:4,background:"#e0e0e0"}}><div style={{width:prog+"%",background:"linear-gradient(90deg,#6c5ce7,#0984e3)",height:8,borderRadius:4,transition:"width 0.4s"}}/></div><span style={{fontSize:11,color:T.textMuted,minWidth:28}}>{prog}%</span></div></div>);
+                      if(col.id==="weeklyUpdate")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",fontSize:12,color:linked?"#888":"#333",borderRight:B.bdrS}}>{linked?<span title="Auto-synced">{rv(row,"weeklyUpdate")||"—"} 🔗</span>:<input value={rv(row,"weeklyUpdate")||""} onChange={e=>upRow(group.id,row.id,"weeklyUpdate",e.target.value)} style={{width:"100%",border:"none",background:"transparent",fontSize:12,outline:"none"}} placeholder="Update..."/>}</div>);
+                      if(col.id==="linkedBoard")return(<div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}>{linked?<button onClick={()=>setActiveId(linked.id)} style={{background:C.hlPurp,color:C.purple,border:"none",borderRadius:6,padding:"4px 10px",cursor:"pointer",fontSize:11,fontWeight:700}}>{linked.name} →</button>:<span style={{color:"#ccc",fontSize:11}}>No link</span>}</div>);
+                      return <div key={col.id} style={{width:col.w,flexShrink:0,padding:"6px 8px",borderRight:B.bdrS}}>—</div>;})}
                     <div className="rowActions" style={{width:70,flexShrink:0,..._fcc,gap:4}}>
                       <span onClick={()=>setDetailPanel({gId:group.id,rId:row.id})} title="Open" style={{cursor:"pointer",color:"#bbb",fontSize:12,padding:"2px 3px",borderRadius:3}} {...hov()}>↗</span>
                       <span onClick={()=>dupRow(group.id,row.id)} title="Duplicate" style={{cursor:"pointer",color:"#bbb",fontSize:12,padding:"2px 3px",borderRadius:3}} {...hov()}>⧉</span>
-                      <span onClick={()=>setConfirmDel({type:"row",gId:group.id,rId:row.id,name:rv(row,"task")||"this project"})} title="Delete" style={{cursor:"pointer",color:"#ccc",fontSize:13,fontWeight:600,lineHeight:1,padding:"2px 3px",borderRadius:3}} onMouseEnter={e=>{e.currentTarget.style.color=C.red;e.currentTarget.style.background="#fff0f0";}} onMouseLeave={e=>{e.currentTarget.style.color="#ccc";e.currentTarget.style.background="transparent";}}>✕</span>
+                      <span onClick={()=>setConfirmDel({type:"row",gId:group.id,rId:row.id,name:rv(row,"task")||"this project"})} title="Delete" style={{cursor:"pointer",color:"#ccc",fontSize:13,fontWeight:600,lineHeight:1,padding:"2px 3px",borderRadius:3}} onMouseEnter={e=>{e.currentTarget.style.color=C.red;e.currentTarget.style.background=C.errBg;}} onMouseLeave={e=>{e.currentTarget.style.color="#ccc";e.currentTarget.style.background="transparent";}}>✕</span>
                     </div></div>);
                 })}</div>
-                <div onClick={()=>addRow(group.id)} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background="#e6f0ff";}} onDragLeave={e=>{e.currentTarget.style.background="";}} onDrop={e=>{e.currentTarget.style.background="";onRowDrop(e,group.id,"__end__");}} style={{padding:"7px 16px 7px 44px",color:C.blue,cursor:"pointer",fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ New project</div>
+                <div onClick={()=>addRow(group.id)} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background=C.hlBlue;}} onDragLeave={e=>{e.currentTarget.style.background="";}} onDrop={e=>{e.currentTarget.style.background="";onRowDrop(e,group.id,"__end__");}} style={{padding:"7px 16px 7px 44px",color:C.blue,cursor:"pointer",fontSize:13}} {...hov()}>+ New project</div>
                 <GroupSummaryBar rows={group.rows} cols={visCols}/>
               </div></div>}</div>);})}
           {activeView==="Main table"&&isTask(board)&&board&&board?.groups.map(group=>{
@@ -2339,10 +2193,10 @@ input[type="checkbox"]:active{transform:scale(1.2);}
                 <ProgBar rows={group.rows}/>
                 <span style={{fontSize:11,color:"rgba(255,255,255,.7)",opacity:isH?1:0,transition:"opacity .15s"}}>{group.rows.length} items</span>
                 <div style={{flex:1}}/><span onClick={e=>{e.stopPropagation();delGroup(group.id);}} style={{cursor:"pointer",color:"rgba(255,255,255,.5)",fontSize:13,opacity:isH?1:0,transition:"opacity .15s"}}>✕</span></div>
-              {!group.collapsed&&<div data-group-body style={{background:T.card,borderRadius:"0 0 8px 8px",border:"1px solid "+T.border,borderTop:"none"}}><div style={{overflowX:"auto"}}>
-                <div data-col-header style={{display:"flex",borderBottom:"1px solid "+T.border,background:T.rowAlt,minWidth:"fit-content"}}>
+              {!group.collapsed&&<div data-group-body style={{background:T.card,borderRadius:"0 0 8px 8px",border:B.bdr,borderTop:"none"}}><div style={{overflowX:"auto"}}>
+                <div data-col-header style={{display:"flex",borderBottom:B.bdr,background:T.rowAlt,minWidth:"fit-content"}}>
                   <div data-stick="0" style={{width:44,flexShrink:0,..._fcc}}><input type="checkbox" checked={group.rows.filter(r=>!r._syncReadonly).length>0&&group.rows.filter(r=>!r._syncReadonly).every(r=>r.checked)} onChange={e=>selectAllInGroup(group.id,e.target.checked)} style={{margin:0}}/></div>
-                  {gC.map(col=>{const isSorted=ss&&ss.colId===(col.id==="timeline"?"tlStart":col.id);const isRn=rnColId===col.id;const isColDrag=dragCol===col.id;const isColOver=dragOverCol===col.id&&dragCol&&dragCol!==col.id;return(<div key={col.id} data-stick={col.id==="task"?"44":undefined} draggable={!isRn&&!resizing} onDragStart={e=>{e.stopPropagation();setDragCol(col.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("colDrag",col.id);}} onDragOver={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)setDragOverCol(col.id);}} onDragLeave={()=>{if(dragOverCol===col.id)setDragOverCol(null);}} onDrop={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)reorderCol(dragCol,col.id);setDragCol(null);setDragOverCol(null);}} onDragEnd={()=>{setDragCol(null);setDragOverCol(null);}} style={{width:col.w,flexShrink:0,padding:"7px 6px",fontSize:12,fontWeight:600,color:T.textSoft,..._fc,gap:2,borderRight:"1px solid #f0f0f0",cursor:isRn?"text":"grab",background:isColOver?"#dbeafe":isSorted?"#eef3ff":"transparent",borderLeft:isColOver?"2px solid #0073ea":"2px solid transparent",opacity:isColDrag?0.4:1,transition:"background .12s, opacity .12s",position:"relative"}} onMouseEnter={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=1)} onMouseLeave={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=0)}>
+                  {gC.map(col=>{const isSorted=ss&&ss.colId===(col.id==="timeline"?"tlStart":col.id);const isRn=rnColId===col.id;const isColDrag=dragCol===col.id;const isColOver=dragOverCol===col.id&&dragCol&&dragCol!==col.id;return(<div key={col.id} data-stick={col.id==="task"?"44":undefined} draggable={!isRn&&!resizing} onDragStart={e=>{e.stopPropagation();setDragCol(col.id);e.dataTransfer.effectAllowed="move";e.dataTransfer.setData("colDrag",col.id);}} onDragOver={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)setDragOverCol(col.id);}} onDragLeave={()=>{if(dragOverCol===col.id)setDragOverCol(null);}} onDrop={e=>{e.preventDefault();e.stopPropagation();if(dragCol&&dragCol!==col.id)reorderCol(dragCol,col.id);setDragCol(null);setDragOverCol(null);}} onDragEnd={()=>{setDragCol(null);setDragOverCol(null);}} style={{width:col.w,flexShrink:0,padding:"7px 6px",fontSize:12,fontWeight:600,color:T.textSoft,..._fc,gap:2,borderRight:B.bdrS,cursor:isRn?"text":"grab",background:isColOver?"#dbeafe":isSorted?"#eef3ff":"transparent",borderLeft:isColOver?"2px solid #0073ea":"2px solid transparent",opacity:isColDrag?0.4:1,transition:"background .12s, opacity .12s",position:"relative"}} onMouseEnter={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=1)} onMouseLeave={e=>e.currentTarget.querySelector('.colMenu')&&(e.currentTarget.querySelector('.colMenu').style.opacity=0)}>
                     {isRn?<input value={rnColVal} onChange={e=>setRnColVal(e.target.value)} onBlur={()=>{rnCol(col.id,rnColVal);setRnColId(null);}} onKeyDown={e=>{if(e.key==="Enter"){rnCol(col.id,rnColVal);setRnColId(null);}}} onClick={e=>e.stopPropagation()} style={{flex:1,border:"none",borderBottom:"2px solid #0073ea",background:"transparent",fontSize:12,fontWeight:600,outline:"none",padding:"0 2px"}} autoFocus/>
                     :<span onClick={()=>{if(col.id==="weeklyStatus")return;const cid=col.id==="timeline"?"tlStart":col.id;const nd=isSorted&&ss.dir==="asc"?"desc":isSorted&&ss.dir==="desc"?null:"asc";doSort(group.id,cid,nd);}} style={{flex:1,..._ell}}>{col.name}</span>}
                     {isSorted&&<span style={{fontSize:9,color:C.blue}}>{ss.dir==="asc"?"↑":"↓"}</span>}
@@ -2353,12 +2207,12 @@ input[type="checkbox"]:active{transform:scale(1.2);}
                 <div data-group-rows>{rows.map(row=>{const hasSub=(rvArr(row,"subitems")).length>0;const isExp=expandedSub[row.id];const od=isOverdue(row);const isSynced=!!row._syncReadonly;return(<div key={row.id}>
                   <div data-row-id={row.id} draggable={!isSynced} onDragStart={()=>{if(!isSynced)setDragRow({gId:group.id,rId:row.id});}} onDragOver={e=>{e.preventDefault();if(!dragCol)e.currentTarget.style.borderTop="2px solid #0073ea";}} onDragLeave={e=>{e.currentTarget.style.borderTop="";}} onDrop={e=>onRowDrop(e,group.id,row.id)}
                     onContextMenu={e=>{e.preventDefault();if(!isSynced)setCtxMenu({x:e.clientX,y:e.clientY,type:"row",gId:group.id,rId:row.id,groups:board.groups});}}
-                    style={{display:"flex",borderBottom:"1px solid "+T.borderSoft,minWidth:"fit-content",cursor:isSynced?"default":"grab",borderLeft:isSynced?"3px solid #a25ddc":od?"3px solid #e2445c":"3px solid transparent",background:isSynced?isDark?"#2a1a3a":"#faf8ff":rowTint(row,isDark),transition:"all .1s"}} onMouseEnter={e=>{if(!isSynced){const t=rowTint(row,isDark);e.currentTarget.style.background=t==="transparent"?T.rowHover:t;}}} onMouseLeave={e=>{e.currentTarget.style.background=isSynced?isDark?"#2a1a3a":"#faf8ff":rowTint(row,isDark);}}>
+                    style={{display:"flex",borderBottom:B.bdrS,minWidth:"fit-content",cursor:isSynced?"default":"grab",borderLeft:isSynced?"3px solid #a25ddc":od?"3px solid #e2445c":"3px solid transparent",background:isSynced?isDark?"#2a1a3a":"#faf8ff":rowTint(row,isDark),transition:"all .1s"}} onMouseEnter={e=>{if(!isSynced){const t=rowTint(row,isDark);e.currentTarget.style.background=t==="transparent"?T.rowHover:t;}}} onMouseLeave={e=>{e.currentTarget.style.background=isSynced?isDark?"#2a1a3a":"#faf8ff":rowTint(row,isDark);}}>
                     <div data-stick="0" style={{width:44,flexShrink:0,..._fcc,gap:1}}>
                       {isSynced?<span style={{fontSize:10,color:C.violet}} title="Synced from another board">⇄</span>
                       :<><span onClick={()=>{if(!hasSub){addSubitem(group.id,row.id);}else{setExpandedSub(s=>({...s,[row.id]:!s[row.id]}));}}} style={{cursor:"pointer",fontSize:8,color:hasSub?"#999":"#ddd",transform:isExp?"rotate(90deg)":"",transition:"transform .15s",display:"inline-block"}} title={hasSub?(isExp?"Collapse":"Expand")+" subitems":"Add subitem"}>▶</span>
                       <input type="checkbox" checked={row.checked||false} onChange={e=>upRow(group.id,row.id,"checked",e.target.checked)} style={{margin:0}}/></>}</div>
-                    {gC.map(col=>(<div key={col.id} data-stick={col.id==="task"?"44":undefined} data-pinned={pinnedCols.includes(col.id)&&col.id!=="task"?"":undefined} style={{width:col.w,flexShrink:0,padding:"2px 4px",..._fc,borderRight:"1px solid "+T.borderSoft,...(pinnedCols.includes(col.id)&&col.id!=="task"?getPinStyle(col.id,gC):{})}}>
+                    {gC.map(col=>(<div key={col.id} data-stick={col.id==="task"?"44":undefined} data-pinned={pinnedCols.includes(col.id)&&col.id!=="task"?"":undefined} style={{width:col.w,flexShrink:0,padding:"2px 4px",..._fc,borderRight:B.bdrS,...(pinnedCols.includes(col.id)&&col.id!=="task"?getPinStyle(col.id,gC):{})}}>
                       {col.id==="weeklyStatus"?<input value={rv(row,"weeklyStatus")||""} onChange={e=>upRow(group.id,row.id,"weeklyStatus",e.target.value)} placeholder="Status..." style={{width:"100%",border:"none",background:"transparent",padding:"6px 8px",fontSize:13,outline:"none"}}/>
                       :<Cell col={col} row={row} onChange={(f,v)=>upRow(group.id,row.id,f,v)} onOpenUpdates={()=>setUpdPanel({gId:group.id,rId:row.id})} onOpenDetail={col.id==="task"?()=>setDetailPanel({gId:group.id,rId:row.id}):null} readonly={!!row._syncReadonly} onEditLabels={(cid,labels)=>setCols(cs=>cs.map(c=>c.id!==cid?c:{...c,labels}))}/>}
                     </div>))}
@@ -2367,9 +2221,9 @@ input[type="checkbox"]:active{transform:scale(1.2);}
                       :<><span onClick={()=>setDetailPanel({gId:group.id,rId:row.id})} title="Open details" style={{cursor:"pointer",color:"#bbb",fontSize:12,padding:"2px 3px",borderRadius:3}} {...hov()}>↗</span>
                       <span onClick={()=>addSubitem(group.id,row.id)} title="Add subitem" style={{cursor:"pointer",color:"#bbb",fontSize:12,padding:"2px 3px",borderRadius:3}} {...hov()}>⊕</span>
                       <span onClick={()=>dupRow(group.id,row.id)} title="Duplicate" style={{cursor:"pointer",color:"#bbb",fontSize:12,padding:"2px 3px",borderRadius:3}} {...hov()}>⧉</span>
-                      <span onClick={()=>setConfirmDel({type:"row",gId:group.id,rId:row.id,name:rv(row,"task")||"this task"})} title="Delete" style={{cursor:"pointer",color:"#ccc",fontSize:13,fontWeight:600,lineHeight:1,padding:"2px 3px",borderRadius:3}} onMouseEnter={e=>{e.currentTarget.style.color=C.red;e.currentTarget.style.background="#fff0f0";}} onMouseLeave={e=>{e.currentTarget.style.color="#ccc";e.currentTarget.style.background="transparent";}}>✕</span></>}
+                      <span onClick={()=>setConfirmDel({type:"row",gId:group.id,rId:row.id,name:rv(row,"task")||"this task"})} title="Delete" style={{cursor:"pointer",color:"#ccc",fontSize:13,fontWeight:600,lineHeight:1,padding:"2px 3px",borderRadius:3}} onMouseEnter={e=>{e.currentTarget.style.color=C.red;e.currentTarget.style.background=C.errBg;}} onMouseLeave={e=>{e.currentTarget.style.color="#ccc";e.currentTarget.style.background="transparent";}}>✕</span></>}
                     </div></div>
-                  {isExp&&(rvArr(row,"subitems")).map(si=>(<div key={si.id} style={{display:"flex",borderBottom:"1px solid #f8f8f8",minWidth:"fit-content",background:isDark?"#252540":"#fafbfe",paddingLeft:20}}>
+                  {isExp&&(rvArr(row,"subitems")).map(si=>(<div key={si.id} style={{display:"flex",borderBottom:B.bdrS,minWidth:"fit-content",background:isDark?"#252540":"#fafbfe",paddingLeft:20}}>
                     <div style={{width:24,flexShrink:0,..._fcc}}><span style={{fontSize:8,color:"#ccc"}}>↳</span></div>
                     <div style={{width:200,flexShrink:0,padding:"3px 6px"}}><input value={si.task} onChange={e=>upSubitem(group.id,row.id,si.id,"task",e.target.value)} placeholder="Subitem..." style={{width:"100%",border:"none",background:"transparent",padding:"4px",fontSize:12,outline:"none"}}/></div>
                     <div style={{width:80,flexShrink:0,padding:"3px 4px"}}><select value={si.owner} onChange={e=>upSubitem(group.id,row.id,si.id,"owner",e.target.value)} style={{border:"none",background:"transparent",fontSize:11,outline:"none",width:"100%"}}><option value="">—</option>{people.map(p=>(<option key={p}>{p}</option>))}</select></div>
@@ -2377,7 +2231,7 @@ input[type="checkbox"]:active{transform:scale(1.2);}
                     <div style={{width:120,flexShrink:0,padding:"3px 4px"}}><select value={si.status} onChange={e=>upSubitem(group.id,row.id,si.id,"status",e.target.value)} style={{width:"100%",padding:"3px",borderRadius:3,border:"none",background:SC[si.status]||"#ccc",color:"#fff",fontSize:11,fontWeight:600,outline:"none",cursor:"pointer"}}>{statuses.map(s=>(<option key={s}>{s}</option>))}</select></div>
                     <div style={{flex:1}}/><div style={{width:36,flexShrink:0,..._fcc}}><span onClick={()=>delSubitem(group.id,row.id,si.id)} style={{cursor:"pointer",color:"#ddd",fontSize:10}}>✕</span></div></div>))}
                   {isExp&&<div onClick={()=>addSubitem(group.id,row.id)} style={{padding:"4px 16px 4px 50px",color:C.blue,cursor:"pointer",fontSize:12,background:isDark?"#252540":"#fafbfe"}}>+ subitem</div>}</div>);})}</div>
-                <div onClick={()=>addRow(group.id)} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background="#e6f0ff";}} onDragLeave={e=>{e.currentTarget.style.background="";}} onDrop={e=>{e.currentTarget.style.background="";onRowDrop(e,group.id,"__end__");}} style={{padding:"7px 16px 7px 44px",color:C.blue,cursor:"pointer",fontSize:13}} onMouseEnter={e=>e.currentTarget.style.background=T.rowHover} onMouseLeave={e=>e.currentTarget.style.background="transparent"}>+ Add task</div>
+                <div onClick={()=>addRow(group.id)} onDragOver={e=>{e.preventDefault();e.currentTarget.style.background=C.hlBlue;}} onDragLeave={e=>{e.currentTarget.style.background="";}} onDrop={e=>{e.currentTarget.style.background="";onRowDrop(e,group.id,"__end__");}} style={{padding:"7px 16px 7px 44px",color:C.blue,cursor:"pointer",fontSize:13}} {...hov()}>+ Add task</div>
                 <GroupSummaryBar rows={group.rows} cols={gC}/>
               </div></div>}</div>);})}
           {isWkBoard(board)&&activeView==="Kanban"&&<KanbanView allRows={filteredAllRows} onStatusChange={(gId,rId,newStatus)=>upRow(gId,rId,"status",newStatus)} onOpenDetail={(gId,rId)=>setDetailPanel({gId,rId})}/>}
@@ -2388,9 +2242,8 @@ input[type="checkbox"]:active{transform:scale(1.2);}
           {isWkBoard(board)&&activeView==="Gantt"&&<GanttView allRows={filteredAllRows} onOpenDetail={(gId,rId)=>setDetailPanel({gId,rId})}/>}
           {isWkBoard(board)&&activeView==="Main table"&&board&&filteredAllRows.length===0&&allRows.length>0&&<EmptyState icon="🔍" title="No matching items" sub="Try changing your search, filters, or quick filter to see results." action="Clear filters" onAction={()=>{setSearch("");setQuickFilter(null);setFilters({status:[],owner:[],priority:[],tags:[]});}}/>}
           {isWkBoard(board)&&activeView==="Main table"&&board&&allRows.length===0&&<EmptyState icon="📝" title="This board is empty" sub="Add your first item to get started." action="+ Add item" onAction={()=>{if(board.groups[0]?.id)addRow(board.groups[0].id);}}/>}</div></div>
-
       {autoPanel&&<AutoPanel autos={boardAutos} setAutos={a=>setAutos({...autos,[activeId]:a})} onClose={()=>setAutoPanel(false)} boardName={board?.name}/>}
-      {historyOpen&&<SidePanel title="📜 History" sub="All boards" onClose={()=>setHistoryOpen(false)} width={460}><div style={{display:"flex",gap:4,padding:"8px 16px",borderBottom:"1px solid #eee",overflowX:"auto",flexShrink:0}}>
+      {historyOpen&&<SidePanel title="📜 History" sub="All boards" onClose={()=>setHistoryOpen(false)} width={460}><div style={{display:"flex",gap:4,padding:"8px 16px",borderBottom:B.bdrS,overflowX:"auto",flexShrink:0}}>
         <button onClick={()=>setHistFilter("all")} style={{padding:"4px 10px",borderRadius:16,border:"none",background:histFilter==="all"?C.dark:"#f0f0f0",color:histFilter==="all"?"#fff":"#666",fontSize:11,cursor:"pointer",fontWeight:histFilter==="all"?700:400,whiteSpace:"nowrap",flexShrink:0}}>All</button>
         {wsBoards.map(b=>(<button key={b.id} onClick={()=>setHistFilter(b.id)} style={{padding:"4px 10px",borderRadius:16,border:"none",background:histFilter===b.id?C.dark:"#f0f0f0",color:histFilter===b.id?"#fff":"#666",fontSize:11,cursor:"pointer",fontWeight:histFilter===b.id?700:400,whiteSpace:"nowrap",flexShrink:0}}>{b.name}</button>))}
       </div><div style={{flex:1,overflowY:"auto",padding:16}}>
@@ -2399,10 +2252,10 @@ input[type="checkbox"]:active{transform:scale(1.2);}
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:12,fontWeight:600}}>{e.action}</span><span style={{fontSize:10,color:"#999"}}>{e.time}</span></div>
           {e.detail&&<div style={{fontSize:12,color:T.textSoft,marginTop:3}}>{e.detail}</div>}
           <div style={{..._fc,gap:6,marginTop:4}}>
-            <span style={{fontSize:10,background:"#f0eeff",color:C.purple,borderRadius:4,padding:"1px 6px",fontWeight:600}}>{e.board}</span>
+            <span style={{fontSize:10,background:C.hlPurp,color:C.purple,borderRadius:4,padding:"1px 6px",fontWeight:600}}>{e.board}</span>
             {e.source&&<span style={{fontSize:10,color:C.violet,fontStyle:"italic"}}>{e.source}</span>}</div></div>))}
       </div></SidePanel>}
-      {updPanel&&updRow&&<SidePanel title={updRow.task} sub="Updates" onClose={()=>setUpdPanel(null)}><div style={{flex:1,overflowY:"auto",padding:16}}>{(updRow.updates||[]).length===0&&<div style={{color:"#aaa",textAlign:"center",padding:30}}>No updates</div>}{(updRow.updates||[]).slice().reverse().map(u=>(<div key={u.id} style={{marginBottom:10,padding:"10px 14px",background:"#f7f8fa",borderRadius:8,borderLeft:"3px solid #0073ea"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{u.author}</span><span style={{fontSize:11,color:"#999"}}>{u.time}</span></div><div style={{fontSize:13,color:"#444"}}>{renderMentionText(u.text,people)}</div></div>))}</div><div style={{padding:16,borderTop:"1px solid #eee"}}><UpdateInput onPost={t=>addUpdate(updPanel.gId,updPanel.rId,t)} people={people}/></div></SidePanel>}
+      {updPanel&&updRow&&<SidePanel title={updRow.task} sub="Updates" onClose={()=>setUpdPanel(null)}><div style={{flex:1,overflowY:"auto",padding:16}}>{(updRow.updates||[]).length===0&&<div style={{color:"#aaa",textAlign:"center",padding:30}}>No updates</div>}{(updRow.updates||[]).slice().reverse().map(u=>(<div key={u.id} style={{marginBottom:10,padding:"10px 14px",background:"#f7f8fa",borderRadius:8,borderLeft:"3px solid #0073ea"}}><div style={{display:"flex",justifyContent:"space-between",marginBottom:3}}><span style={{fontSize:12,fontWeight:600}}>{u.author}</span><span style={{fontSize:11,color:"#999"}}>{u.time}</span></div><div style={{fontSize:13,color:"#444"}}>{renderMentionText(u.text,people)}</div></div>))}</div><div style={{padding:16,borderTop:B.bdrS}}><UpdateInput onPost={t=>addUpdate(updPanel.gId,updPanel.rId,t)} people={people}/></div></SidePanel>}
       {detailPanel&&detailRow&&<DetailPanel row={detailRow} gId={detailGId} onUpdate={(f,v)=>upRow(detailGId,detailRow.id,f,v)} onAddUpdate={t=>addUpdate(detailGId,detailRow.id,t)} onClose={()=>setDetailPanel(null)}/>}
       {notifsOpen&&<NotifsPanel notifs={notifs} setNotifs={setNotifs} onClose={()=>setNotifsOpen(false)}/>}
       {activityOpen&&<ActivityPanel boards={boards} onClose={()=>setActivityOpen(false)}/>}
@@ -2421,8 +2274,7 @@ input[type="checkbox"]:active{transform:scale(1.2);}
           <div style={{maxHeight:"50vh",overflowY:"auto",padding:8}}>
             {(()=>{
               if(!globalSearchQ||globalSearchQ.length<2)return(<div style={{padding:"20px 16px",textAlign:"center",color:V.tMut,fontSize:13}}>Type at least 2 characters to search</div>);
-              const q=globalSearchQ.toLowerCase();
-              const results=[];
+              const q=globalSearchQ.toLowerCase();const results=[];
               boards.forEach(b=>{if(isDash(b)||isSummaryB(b))return;b.groups.forEach(g=>{g.rows.forEach(r=>{if((rv(r,"task")||"").toLowerCase().includes(q)||(rv(r,"owner")||"").toLowerCase().includes(q)||(rv(r,"notes")||"").toLowerCase().includes(q)){results.push({board:b,group:g,row:r});}});});});
               if(!results.length)return(<div style={{padding:"20px 16px",textAlign:"center"}}><div style={{fontSize:24,marginBottom:6}}>🔍</div><div style={{color:V.tMut,fontSize:13}}>No results for "{globalSearchQ}"</div></div>);
               return results.slice(0,20).map(r=>(<div key={r.row.id} onClick={()=>{setActiveId(r.board.id);setDetailPanel({gId:r.group.id,rId:r.row.id});setGlobalSearchOpen(false);setGlobalSearchQ("");}} style={{padding:"10px 12px",borderRadius:8,cursor:"pointer",display:"flex",gap:10,alignItems:"center",marginBottom:2}} {...hov()}>
@@ -2432,6 +2284,11 @@ input[type="checkbox"]:active{transform:scale(1.2);}
                   <div style={{fontSize:11,color:V.tMut,display:"flex",gap:6}}><span>{r.board.icon} {r.board.name}</span><span>·</span><span>{r.group.name}</span>{rv(r.row,"owner")&&<><span>·</span><span>{rv(r.row,"owner")}</span></>}</div></div>
                 <span style={{fontSize:10,padding:"2px 8px",borderRadius:4,background:SC[rv(r.row,"status")]||"#ccc",color:"#fff",fontWeight:600,flexShrink:0}}>{rv(r.row,"status")}</span></div>));
             })()}</div></div></div>}
+      {/* Mobile bottom nav */}
+      <div data-mobile-nav style={{position:"fixed",bottom:0,left:0,right:0,background:T.card,borderTop:B.bdr,padding:"6px 0",paddingBottom:"max(6px,env(safe-area-inset-bottom))",zIndex:9998,..._fc,justifyContent:"space-around",boxShadow:"0 -2px 10px rgba(0,0,0,.06)"}}>
+        {[{icon:"☰",label:"Boards",fn:()=>setMobileOpen(o=>!o)},{icon:"📋",label:activeView,fn:()=>setViewDropOpen(o=>!o)},{icon:"＋",label:"New",fn:()=>addRow(board?.groups?.[0]?.id),accent:true},{icon:"🔍",label:"Search",fn:()=>{setGlobalSearchOpen(true);setGlobalSearchQ("");}},{icon:"⚙",label:"More",fn:()=>setUserMenuOpen(o=>!o)}].map(btn=>(<div key={btn.label} onClick={btn.fn} style={{..._fcc,flexDirection:"column",gap:2,cursor:"pointer",padding:"4px 8px",borderRadius:6,minWidth:56,transition:"all .12s",WebkitTapHighlightColor:"transparent"}}>
+          {btn.accent?<div style={{width:36,height:36,borderRadius:"50%",background:C.blue,..._fcc,color:"#fff",fontSize:18,fontWeight:700,boxShadow:"0 2px 8px rgba(0,115,234,.3)"}}>{btn.icon}</div>:<span style={{fontSize:20,lineHeight:1}}>{btn.icon}</span>}
+          <span style={{fontSize:9,color:T.textMuted,fontWeight:500}}>{btn.label}</span></div>))}</div>
       {toast&&<Toast msg={toast} onDone={()=>setToast(null)}/>}
       {confirmDel&&<ConfirmModal
         message={confirmDel.type==="bulk"
@@ -2490,22 +2347,19 @@ input[type="checkbox"]:active{transform:scale(1.2);}
   </SlateCtx.Provider>);}
 
 const AutoPanel=memo(({autos,setAutos,onClose,boardName})=>{
-  const [view,setView]=useState("browse");const [search,setSearch]=useState("");const [catFilter,setCatFilter]=useState("All");
-  const cats=["All",...AUTO_RECIPES.reduce((acc,r)=>acc.includes(r.cat)?acc:[...acc,r.cat],[])];
-  const filtered=AUTO_RECIPES.filter(r=>(catFilter==="All"||r.cat===catFilter)&&(!search||r.title.toLowerCase().includes(search.toLowerCase())||r.desc.toLowerCase().includes(search.toLowerCase())));
-  const isActive=r=>autos.some(a=>a.trigger===r.trigger);
+  const [view,setView]=useState("browse");const [search,setSearch]=useState("");const [catFilter,setCatFilter]=useState("All");const cats=["All",...AUTO_RECIPES.reduce((acc,r)=>acc.includes(r.cat)?acc:[...acc,r.cat],[])];
+  const filtered=AUTO_RECIPES.filter(r=>(catFilter==="All"||r.cat===catFilter)&&(!search||r.title.toLowerCase().includes(search.toLowerCase())||r.desc.toLowerCase().includes(search.toLowerCase())));const isActive=r=>autos.some(a=>a.trigger===r.trigger);
   const toggleRecipe=r=>{if(isActive(r)){setAutos(autos.filter(a=>a.trigger!==r.trigger));}else{setAutos([...autos,{id:uid(),enabled:true,trigger:r.trigger,title:r.title,label:r.desc,cat:r.cat}]);}};
   return(<SidePanel title="⚡ Automations" sub={boardName} onClose={onClose} width={560}>
-    <div style={{display:"flex",borderBottom:"1px solid #eee"}}>
+    <div style={{display:"flex",borderBottom:B.bdrS}}>
       {[["browse","Browse Recipes"],["active","My Automations ("+autos.length+")"]].map(([k,l])=>(<div key={k} onClick={()=>setView(k)} style={{flex:1,padding:"10px 16px",fontSize:13,fontWeight:view===k?600:400,borderBottom:view===k?"2px solid #6c5ce7":"2px solid transparent",cursor:"pointer",color:view===k?C.purple:"#666",textAlign:"center"}}>{l}</div>))}
     </div>
     {view==="browse"&&<>
-      <div style={{padding:"10px 16px",borderBottom:"1px solid "+T.borderSoft,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
-        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search recipes..." style={{border:"1px solid "+T.border,borderRadius:6,padding:"5px 10px",fontSize:12,outline:"none",width:160}}/>
-        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{cats.map(c=>(<button key={c} onClick={()=>setCatFilter(c)} style={{background:catFilter===c?C.purple:"#f5f6f8",color:catFilter===c?"#fff":"#666",border:"none",borderRadius:16,padding:"3px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{c}</button>))}</div>
-      </div>
+      <div style={{padding:"10px 16px",borderBottom:B.bdrS,display:"flex",gap:8,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search recipes..." style={{border:B.bdr,borderRadius:6,padding:"5px 10px",fontSize:12,outline:"none",width:160}}/>
+        <div style={{display:"flex",gap:4,flexWrap:"wrap"}}>{cats.map(c=>(<button key={c} onClick={()=>setCatFilter(c)} style={{background:catFilter===c?C.purple:"#f5f6f8",color:catFilter===c?"#fff":"#666",border:"none",borderRadius:16,padding:"3px 10px",fontSize:11,cursor:"pointer",whiteSpace:"nowrap"}}>{c}</button>))}</div></div>
       <div style={{flex:1,overflowY:"auto",padding:16,display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
-        {filtered.map(r=>{const active=isActive(r);return(<div key={r.id} style={{border:"1px solid "+(active?C.purple:"#e6e9ef"),borderRadius:10,padding:14,background:active?"#f5f3ff":"#fff"}}>
+        {filtered.map(r=>{const active=isActive(r);return(<div key={r.id} style={{border:"1px solid "+(active?C.purple:C.hlGrey),borderRadius:10,padding:14,background:active?C.lgPurp:"#fff"}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:6}}>
             <div style={{fontSize:13,fontWeight:700,color:T.text}}>{r.title}</div>
             {r.popular&&<span style={{background:"#fff8e7",color:C.orange,borderRadius:10,padding:"1px 6px",fontSize:10,fontWeight:700}}>Popular</span>}</div>
